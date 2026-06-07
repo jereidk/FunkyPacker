@@ -11,6 +11,7 @@ import OldBrowserBlocker from './OldBrowserBlocker.jsx';
 import Updater from './Updater.jsx';
 import EditCustomExporter from './EditCustomExporter.jsx';
 import SheetSplitter from './SheetSplitter.jsx';
+import MusicPlayer from './MusicPlayer.jsx';
 
 import {Observer, GLOBAL_EVENT} from '../Observer';
 
@@ -99,6 +100,12 @@ class MainLayout extends React.Component {
         let editCustomExporter = this.state.editCustomExporter ? (<EditCustomExporter/>) : null;
         let updater = this.state.updater ? (<Updater data={this.state.updater}/>) : null;
         let sheetSplitter = this.state.sheetSplitter ? (<SheetSplitter/>) : null;
+        
+        // MusicPlayer only on Android
+        let musicPlayer = null;
+        if (typeof PLATFORM !== 'undefined' && PLATFORM === 'android') {
+            musicPlayer = <MusicPlayer/>;
+        }
 
         return (
 
@@ -117,6 +124,8 @@ class MainLayout extends React.Component {
                     {shader}
                     {this.state.messageBox}
                 </div>
+                
+                {musicPlayer}
             </div>
         );
     }
