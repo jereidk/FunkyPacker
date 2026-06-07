@@ -68,97 +68,113 @@ jobs:
           ./gradlew assembleRelease --no-daemon
         continue-on-error: false
 
-      - name: Find APK files
-        run: |
-          echo "=== Finding APK files ==="
-          find android -name "*.apk" -type f 2>/dev/null
-          echo "=== APK file details ==="
-          ls -la android/app/build/outputs/apk/debug/ 2>/dev/null || echo "Debug APK dir not found"
-          ls -la android/app/build/outputs/apk/release/ 2>/dev/null || echo "Release APK dir not found"
-
       - name: Upload debug APK
         if: github.event.inputs.build_type == 'debug' || github.event.inputs.build_type == 'both'
         run: |
-          echo "=== Uploading Debug APK ==="
-          APK_PATH=$(find android -name "*.apk" -path "*/debug/*" -type f 2>/dev/null | head -1)
-          if [ -n "$APK_PATH" ]; then
-            echo "Found APK: $APK_PATH"
-            echo "Size: $(du -h "$APK_PATH" | cut -f1)"
+          echo "=== Creating Release for Debug APK ==="
+          
+          # Create a tag if it doesn't exist
+          TAG="debug-$(date +%Y%m%d-%H%M%S)"
+          echo "Tag: $TAG"
+          
+          # Create release via GitHub API
+          RESPONSE=$(curl -s -X POST \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            https://api.github.com/repos/${{ github.repository }}/releases \
+            -d '{
+              "tag_name":"'"$TAG"'",
+              "name":"Debug APK Build '"$TAG"'",
+              "draft":true,
+              "prerelease":true,
+              "body":"Debug APK built from branch '"${{ github.ref_name }}"' at '"$(date -u +%Y-%m-%dT%H:%M:%SZ)"'"
+            }')
+          
+          echo "Release response: $RESPONSE"
+          
+          # Extract upload URL
+          UPLOAD_URL=$(echo "$RESPONSE" | grep -o '"upload_url":"[^"]*"' | cut -d'"' -f4 | sed 's/{?name,archive_format}//')
+          RELEASE_ID=$(echo "$RESPONSE" | grep -o '"id":[0-9]*' | head -1 | cut -d':' -f2)
+          
+          echo "Upload URL: $UPLOAD_URL"
+          echo "Release ID: $RELEASE_ID"
+          
+          if [ -n "$UPLOAD_URL" ]; then
+            # Upload APK
+            echo "=== Uploading APK ==="
+            APK_PATH="android/app/build/outputs/apk/debug/app-debug.apk"
             
-            # Upload using curl with GitHub API
-            # First, get the upload URL
-            RESPONSE=$(curl -s -X POST \
-              -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            curl -s -X POST \
+              -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
               -H "Accept: application/vnd.github+json" \
               -H "X-GitHub-Api-Version: 2022-11-28" \
-              -H "Content-Type: application/json" \
-              https://api.github.com/repos/${{ github.repository }}/actions/artifacts \
-              -d '{"name":"app-debug-apk","size":'"$(stat -f%z "$APK_PATH")"',"content_type":"application/vnd.android.package-archive"}')
+              -H "Content-Type: application/vnd.android.package-archive" \
+              --data-binary "@$APK_PATH" \
+              "${UPLOAD_URL}?name=app-debug.apk"
             
-            echo "Response: $RESPONSE"
+            echo "=== APK Uploaded to Release ==="
             
-            # Extract upload URL and artifact ID
-            UPLOAD_URL=$(echo "$RESPONSE" | grep -o '"upload_url":"[^"]*"' | cut -d'"' -f4 | sed 's/{?name,archive_format}//')
-            ARTIFACT_ID=$(echo "$RESPONSE" | grep -o '"id":[0-9]*' | head -1 | cut -d':' -f2)
-            
-            echo "Upload URL: $UPLOAD_URL"
-            echo "Artifact ID: $ARTIFACT_ID"
-            
-            if [ -n "$UPLOAD_URL" ]; then
-              # Upload the file
-              curl -s -X PUT \
-                -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
-                -H "Accept: application/vnd.github+json" \
-                -H "X-GitHub-Api-Version: 2022-11-28" \
-                -H "Content-Type: application/vnd.android.package-archive" \
-                --data-binary "@$APK_PATH" \
-                "$UPLOAD_URL"
-              
-              echo "=== APK Uploaded Successfully ==="
-            else
-              echo "ERROR: Could not get upload URL"
-              exit 1
-            fi
-          else
-            echo "ERROR: No debug APK found"
-            exit 1
+            # Save release info for download
+            echo "$RELEASE_ID" > release_id.txt
+            echo "$TAG" > release_tag.txt
           fi
 
       - name: Upload release APK
         if: github.event.inputs.build_type == 'release' || github.event.inputs.build_type == 'both'
         run: |
-          echo "=== Uploading Release APK ==="
-          APK_PATH=$(find android -name "*.apk" -path "*/release/*" -type f 2>/dev/null | head -1)
-          if [ -n "$APK_PATH" ]; then
-            echo "Found APK: $APK_PATH"
-            echo "Size: $(du -h "$APK_PATH" | cut -f1)"
+          echo "=== Creating Release for Release APK ==="
+          
+          TAG="release-$(date +%Y%m%d-%H%M%S)"
+          echo "Tag: $TAG"
+          
+          RESPONSE=$(curl -s -X POST \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            https://api.github.com/repos/${{ github.repository }}/releases \
+            -d '{
+              "tag_name":"'"$TAG"'",
+              "name":"Release APK Build '"$TAG"'",
+              "draft":true,
+              "body":"Release APK built from branch '"${{ github.ref_name }}"' at '"$(date -u +%Y-%m-%dT%H:%M:%SZ)"'"
+            }')
+          
+          UPLOAD_URL=$(echo "$RESPONSE" | grep -o '"upload_url":"[^"]*"' | cut -d'"' -f4 | sed 's/{?name,archive_format}//')
+          RELEASE_ID=$(echo "$RESPONSE" | grep -o '"id":[0-9]*' | head -1 | cut -d':' -f2)
+          
+          if [ -n "$UPLOAD_URL" ]; then
+            echo "=== Uploading APK ==="
+            APK_PATH="android/app/build/outputs/apk/release/app-release.apk"
             
-            # Upload using curl with GitHub API
-            RESPONSE=$(curl -s -X POST \
-              -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            curl -s -X POST \
+              -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
               -H "Accept: application/vnd.github+json" \
               -H "X-GitHub-Api-Version: 2022-11-28" \
-              -H "Content-Type: application/json" \
-              https://api.github.com/repos/${{ github.repository }}/actions/artifacts \
-              -d '{"name":"app-release-apk","size":'"$(stat -f%z "$APK_PATH")"',"content_type":"application/vnd.android.package-archive"}')
+              -H "Content-Type: application/vnd.android.package-archive" \
+              --data-binary "@$APK_PATH" \
+              "${UPLOAD_URL}?name=app-release.apk"
             
-            UPLOAD_URL=$(echo "$RESPONSE" | grep -o '"upload_url":"[^"]*"' | cut -d'"' -f4 | sed 's/{?name,archive_format}//')
+            echo "$RELEASE_ID" > release_id.txt
+            echo "$TAG" > release_tag.txt
+            echo "=== APK Uploaded to Release ==="
+          fi
+
+      - name: Comment on PR with download link
+        if: github.event_name == 'pull_request'
+        run: |
+          if [ -f release_tag.txt ]; then
+            TAG=$(cat release_tag.txt)
+            COMMENT="## ✅ APK Build Complete
             
-            if [ -n "$UPLOAD_URL" ]; then
-              curl -s -X PUT \
-                -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
-                -H "Accept: application/vnd.github+json" \
-                -H "X-GitHub-Api-Version: 2022-11-28" \
-                -H "Content-Type: application/vnd.android.package-archive" \
-                --data-binary "@$APK_PATH" \
-                "$UPLOAD_URL"
-              
-              echo "=== APK Uploaded Successfully ==="
-            else
-              echo "ERROR: Could not get upload URL"
-              exit 1
-            fi
-          else
-            echo "ERROR: No release APK found"
-            exit 1
+The APK has been uploaded to a draft release: https://github.com/${{ github.repository }}/releases/tag/$TAG
+            
+> Download the APK directly from the release assets!"
+            
+            curl -s -X POST \
+              -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+              -H "Accept: application/vnd.github+json" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              https://api.github.com/repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments \
+              -d '{"body":"'"$COMMENT"'"}'
           fi
