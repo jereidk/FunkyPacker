@@ -3,29 +3,35 @@ class Controller {
         // Initialize LogConsole for Android
         this.initLogConsole();
         
-        // Android back button handling
-        if (typeof App !== 'undefined') {
+        // Android back button handling - wait for Capacitor to load
+        if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.App) {
             try {
-                App.addListener('backButton', () => {
+                window.Capacitor.Plugins.App.addListener('backButton', () => {
                     if (window.history.length > 1) {
                         window.history.back();
                     }
                 });
             } catch (e) {
-                // Ignore
+                console.log('Back button error:', e);
             }
         }
     }
     
     static initLogConsole() {
+        console.log('[Android] Initializing LogConsole...');
+        
         // Inject styles
         const style = document.createElement('style');
+        style.id = 'log-console-styles';
         style.textContent = `
-            .log-console-toggle {
+            #log-console-container {
                 position: fixed;
                 bottom: 20px;
                 right: 20px;
                 z-index: 9998;
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            }
+            .log-console-toggle {
                 background: #1a1a2e;
                 color: white;
                 padding: 12px 16px;
@@ -38,6 +44,7 @@ class Controller {
                 border: 1px solid #4a4a6a;
                 min-width: 50px;
                 justify-content: center;
+                font-size: 14px;
             }
             .log-console-toggle:hover { background: #2a2a4e; }
             .log-console-toggle .log-icon { font-size: 18px; }
@@ -59,6 +66,7 @@ class Controller {
                 display: flex;
                 flex-direction: column;
                 max-height: 50vh;
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             }
             .log-console-header {
                 display: flex;
@@ -89,6 +97,7 @@ class Controller {
                 font-family: 'Courier New', monospace;
                 font-size: 11px;
                 max-height: 200px;
+                background: #1a1a2e;
             }
             .log-entry {
                 display: flex;
@@ -174,12 +183,15 @@ class Controller {
         const render = () => {
             if (!visible) {
                 container.innerHTML = `
-                    <div class="log-console-toggle">
+                    <div class="log-console-toggle" id="log-toggle-btn">
                         <span class="log-icon">📋</span>
                         ${logs.length > 0 ? `<span class="log-count">${logs.length}</span>` : ''}
                     </div>
                 `;
-                container.querySelector('.log-console-toggle').onclick = () => { visible = true; render(); };
+                const btn = container.querySelector('#log-toggle-btn');
+                if (btn) {
+                    btn.onclick = () => { visible = true; render(); };
+                }
             } else {
                 let entriesHtml = '';
                 if (logs.length === 0) {
@@ -209,22 +221,41 @@ class Controller {
                 `;
                 
                 contentEl = container.querySelector('.log-console-content');
-                contentEl.scrollTop = contentEl.scrollHeight;
+                if (contentEl) {
+                    contentEl.scrollTop = contentEl.scrollHeight;
+                }
                 
-                container.querySelector('#log-copy').onclick = () => {
-                    const text = logs.map(e => `[${e.timestamp}] [${e.type.toUpperCase()}] ${e.message}`).join('\n');
-                    if (navigator.clipboard) {
-                        navigator.clipboard.writeText(text);
-                    }
-                };
-                container.querySelector('#log-clear').onclick = () => { logs.length = 0; render(); };
-                container.querySelector('#log-close').onclick = () => { visible = false; render(); };
+                const copyBtn = container.querySelector('#log-copy');
+                if (copyBtn) {
+                    copyBtn.onclick = () => {
+                        const text = logs.map(e => `[${e.timestamp}] [${e.type.toUpperCase()}] ${e.message}`).join('\n');
+                        if (navigator.clipboard) {
+                            navigator.clipboard.writeText(text);
+                        }
+                    };
+                }
+                
+                const clearBtn = container.querySelector('#log-clear');
+                if (clearBtn) {
+                    clearBtn.onclick = () => { logs.length = 0; render(); };
+                }
+                
+                const closeBtn = container.querySelector('#log-close');
+                if (closeBtn) {
+                    closeBtn.onclick = () => { visible = false; render(); };
+                }
             }
         };
         
+        // Create container
         container = document.createElement('div');
+        container.id = 'log-console-container';
         document.body.appendChild(container);
+        
+        // Initial render
         render();
+        
+        console.log('[Android] LogConsole initialized');
     }
     
     static updateLocale() {}
