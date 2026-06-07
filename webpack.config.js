@@ -20,11 +20,12 @@ var argv = {
     build: true
 }
 
-let PLATFORM = argv.platform || 'web';
-let mode = prod ? 'production' : 'development';//argv.build ? 'production' : 'development';
+let PLATFORM = process.env.PLATFORM || argv.platform || 'web';
+let mode = prod ? 'production' : 'development';
 
 let target = 'web';
 if (PLATFORM === 'electron') target = 'electron-renderer';
+if (PLATFORM === 'android') target = 'web';
 
 plugins.push(new webpack.DefinePlugin({
     'process.env.NODE_ENV': JSON.stringify(mode),
@@ -40,6 +41,10 @@ if (argv.build) {
 
     if (PLATFORM === 'electron') {
         outputDir = '../electron/www/';
+    }
+
+    if (PLATFORM === 'android') {
+        outputDir = 'android/';
     }
 
     plugins.push(new CopyWebpackPlugin([{from: 'src/client/resources', to: outputDir}]));
@@ -98,6 +103,8 @@ let config = {
 
 if (target === 'electron-renderer') {
     config.resolve = {alias: {'platform': path.resolve(__dirname, './src/client/platform/electron')}};
+} else if (PLATFORM === 'android') {
+    config.resolve = {alias: {'platform': path.resolve(__dirname, './src/client/platform/android')}};
 } else {
     config.resolve = {alias: {'platform': path.resolve(__dirname, './src/client/platform/web')}};
 }

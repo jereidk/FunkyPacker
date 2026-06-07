@@ -1,0 +1,95 @@
+name: Build Android APK
+
+on:
+  push:
+    branches: [ master, main, android-apk-support ]
+    paths:
+      - 'src/**'
+      - 'package.json'
+      - 'webpack.config.js'
+      - 'android/**'
+      - 'capacitor.config.json'
+  pull_request:
+    branches: [ master, main ]
+  workflow_dispatch:
+    inputs:
+      build_type:
+        description: 'Build type'
+        required: true
+        default: 'debug'
+        type: choice
+        options:
+          - debug
+          - release
+          - both
+
+jobs:
+  build-apk:
+    runs-on: macos-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install npm dependencies
+        run: npm install --legacy-peer-deps
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v2
+
+      - name: Build web app for Android
+        run: npm run build-android
+        env:
+          PLATFORM: android
+
+      - name: Sync Capacitor
+        run: |
+          echo "=== Syncing Capacitor ==="
+          echo "Android folder exists: $(test -d android && echo 'yes' || echo 'no')"
+          npx cap sync android --prompt=false || echo "Sync failed"
+          echo "=== Sync complete ==="
+
+      - name: Build debug APK
+        if: github.event.inputs.build_type == 'debug' || github.event.inputs.build_type == 'both' || github.event_name != 'workflow_dispatch'
+        run: |
+          echo "=== Building Debug APK ==="
+          echo "ANDROID_HOME: $ANDROID_HOME"
+          java -version
+          
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon --stacktrace
+          
+          echo ""
+          echo "Build complete. Checking APK..."
+          ls -la app/build/outputs/apk/debug/ 2>/dev/null || echo "No APK found"
+        continue-on-error: false
+
+      - name: Build release APK
+        if: github.event.inputs.build_type == 'release' || github.event.inputs.build_type == 'both'
+        run: |
+          cd android
+          ./gradlew assembleRelease --no-daemon
+        continue-on-error: false
+
+      - name: Upload debug APK
+        if: github.event.inputs.build_type == 'debug' || github.event.inputs.build_type == 'both' || github.event_name != 'workflow_dispatch'
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-debug-apk
+          path: android/app/build/outputs/apk/debug/*.apk
+          retention-days: 30
+
+      - name: Upload release APK
+        if: github.event.inputs.build_type == 'release' || github.event.inputs.build_type == 'both'
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-release-apk
+          path: android/app/build/outputs/apk/release/*.apk
+          retention-days: 30

@@ -1,0 +1,20 @@
+{
+  "appId": "com.funkinpacker.app",
+  "appName": "Funkin Packer",
+  "webDir": "dist/android",
+  "android": {
+    "backgroundColor": "#1a1a2e",
+    "allowMixedContent": true
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 2000,
+      "backgroundColor": "#1a1a2e",
+      "showSpinner": false
+    },
+    "StatusBar": {
+      "backgroundColor": "#1a1a2e",
+      "style": "DARK"
+    }
+  }
+}

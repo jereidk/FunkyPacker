@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Funkin Packer</string>
+    <string name="title_activity_main">Funkin Packer</string>
+    <string name="package_name">com.funkinpacker.app</string>
+    <string name="custom_url_scheme">com.funkinpacker.app</string>
+</resources>

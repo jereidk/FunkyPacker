@@ -55,12 +55,20 @@
   ],
   "scripts": {
     "start": "webpack-dev-server --host 127.0.0.1 --port 4000",
-    "start-electron": "webpack-dev-server --host 127.0.0.1 --port 4000 --platform electron",
+    "start-electron": "PLATFORM=electron webpack serve --host 127.0.0.1 --port 4000",
     "build": "webpack",
-    "build-web": "webpack --build --platform web",
-    "build-web-watch": "webpack --build --watch --platform web",
+    "build-web": "PLATFORM=web webpack",
+    "build-web-watch": "PLATFORM=web webpack --watch",
     "serve": "webpack serve --open",
-    "build-electron": "webpack --build --platform electron"
+    "build-electron": "PLATFORM=electron webpack",
+    "build-android": "PLATFORM=android webpack",
+    "add-android": "npx cap add android",
+    "sync-android": "npx cap sync android",
+    "open-android": "npx cap open android",
+    "copy-android-assets": "npm run build-android && npx cap copy android",
+    "open-studio": "npx cap open android --androidstudio",
+    "build-apk": "npm run copy-android-assets && cd android && ./gradlew assembleDebug",
+    "build-release-apk": "npm run copy-android-assets && cd android && ./gradlew assembleRelease"
   },
   "repository": {
     "type": "git",
@@ -114,6 +122,15 @@
     "webpack-dev-server": "^4.13.2"
   },
   "dependencies": {
+    "@capacitor/android": "^8.4.0",
+    "@capacitor/app": "^8.1.0",
+    "@capacitor/cli": "^8.4.0",
+    "@capacitor/core": "^8.4.0",
+    "@capacitor/filesystem": "^8.1.2",
+    "@capacitor/haptics": "^8.0.2",
+    "@capacitor/share": "^8.0.1",
+    "@capacitor/splash-screen": "^8.0.1",
+    "@capacitor/status-bar": "^8.0.2",
     "buffer": "^6.0.3",
     "stream": "^0.0.2",
     "timers-browserify": "^2.0.12",

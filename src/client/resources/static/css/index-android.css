@@ -1,0 +1,116 @@
+/* Funkin Packer - Android Mobile Styles */
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
+    user-select: none;
+}
+
+.main-container {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    height: 100dvh;
+    overflow: hidden;
+}
+
+/* Touch-friendly buttons */
+button, .btn {
+    min-height: 44px;
+    min-width: 44px;
+    padding: 12px 20px;
+    font-size: 16px;
+    border-radius: 8px;
+}
+
+/* Larger touch targets for mobile */
+.header-btn, .toolbar-btn {
+    min-width: 48px;
+    min-height: 48px;
+}
+
+/* Scrollable areas */
+.scroll-container {
+    -webkit-overflow-scrolling: touch;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+/* Panel layout adjustments */
+.panel {
+    border-radius: 12px;
+}
+
+/* File list items */
+.file-item {
+    min-height: 48px;
+    padding: 12px;
+}
+
+/* Prevent text selection in UI */
+.no-select {
+    -webkit-user-select: none;
+    user-select: none;
+}
+
+/* Better focus states for accessibility */
+:focus {
+    outline: 2px solid #4CAF50;
+    outline-offset: 2px;
+}
+
+/* Modal/dialog adjustments */
+.modal-content {
+    border-radius: 16px;
+    margin: 16px;
+    max-height: 80vh;
+}
+
+/* Input fields */
+input, textarea, select {
+    min-height: 44px;
+    font-size: 16px;
+    padding: 12px;
+    border-radius: 8px;
+}
+
+/* Progress indicators */
+.progress-bar {
+    height: 8px;
+    border-radius: 4px;
+}
+
+/* Loading states */
+.loading {
+    min-height: 64px;
+}
+
+/* Fix for iOS safe areas */
+@supports (padding: max(0px)) {
+    .main-container {
+        padding-top: max(12px, env(safe-area-inset-top));
+        padding-bottom: max(12px, env(safe-area-inset-bottom));
+        padding-left: max(12px, env(safe-area-inset-left));
+        padding-right: max(12px, env(safe-area-inset-right));
+    }
+}
+
+/* Landscape adjustments */
+@media (orientation: landscape) and (max-height: 500px) {
+    .main-container {
+        flex-direction: row;
+    }
+}
+
+/* Responsive layout for tablets */
+@media (min-width: 768px) {
+    .panel {
+        min-width: 300px;
+    }
+}
+
+/* Status bar safe area for Capacitor */
+body {
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+}

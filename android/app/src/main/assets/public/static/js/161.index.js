@@ -1,0 +1,1 @@
+"use strict";(self.webpackChunkfunkin_packer=self.webpackChunkfunkin_packer||[]).push([[161],{4161:(e,n,h)=>{h.r(n),h.d(n,{Share:()=>k});const k=(0,h(9895).fo)("Share",{web:()=>h.e(811).then(h.bind(h,4811)).then((e=>new e.ShareWeb))})}}]);
