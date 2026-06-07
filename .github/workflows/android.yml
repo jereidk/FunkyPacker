@@ -42,7 +42,7 @@ jobs:
         run: |
           echo "=== Syncing Capacitor ==="
           echo "Android folder exists: $(test -d android && echo 'yes' || echo 'no')"
-          npx cap sync android --prompt=false || echo "Sync failed"
+          npx cap sync android
           echo "=== Sync complete ==="
 
       - name: Build debug APK
