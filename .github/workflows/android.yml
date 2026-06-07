@@ -33,6 +33,14 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v2
 
+      - name: Setup GitHub CLI
+        run: |
+          if ! command -v gh &> /dev/null; then
+            echo "Installing GitHub CLI..."
+            brew install gh
+          fi
+          gh auth status || gh auth login --with-token <<< '${{ secrets.GITHUB_TOKEN }}'
+
       - name: Build web app for Android
         run: npm run build-android
         env:
@@ -68,20 +76,50 @@ jobs:
           ./gradlew assembleRelease --no-daemon
         continue-on-error: false
 
+      - name: Find APK files
+        run: |
+          echo "=== Finding APK files ==="
+          find android -name "*.apk" -type f 2>/dev/null
+          echo "=== APK file details ==="
+          ls -la android/app/build/outputs/apk/debug/ 2>/dev/null || echo "Debug APK dir not found"
+          ls -la android/app/build/outputs/apk/release/ 2>/dev/null || echo "Release APK dir not found"
+
       - name: Upload debug APK
         if: github.event.inputs.build_type == 'debug' || github.event.inputs.build_type == 'both'
-        uses: actions/upload-artifact@v4
-        with:
-          name: app-debug-apk
-          path: android/app/build/outputs/apk/debug/*.apk
-          retention-days: 30
-          compression-level: 0
+        run: |
+          echo "=== Uploading Debug APK ==="
+          APK_PATH=$(find android -name "*.apk" -path "*/debug/*" -type f 2>/dev/null | head -1)
+          if [ -n "$APK_PATH" ]; then
+            echo "Found APK: $APK_PATH"
+            echo "Size: $(du -h "$APK_PATH" | cut -f1)"
+            # Upload using GitHub CLI
+            gh api repos/${{ github.repository }}/actions/artifacts \
+              --method POST \
+              --field name=app-debug-apk \
+              --field file=@$APK_PATH \
+              --field content_type=application/vnd.android.package-archive
+            echo "=== APK Uploaded Successfully ==="
+          else
+            echo "ERROR: No debug APK found"
+            exit 1
+          fi
 
       - name: Upload release APK
         if: github.event.inputs.build_type == 'release' || github.event.inputs.build_type == 'both'
-        uses: actions/upload-artifact@v4
-        with:
-          name: app-release-apk
-          path: android/app/build/outputs/apk/release/*.apk
-          retention-days: 30
-          compression-level: 0
+        run: |
+          echo "=== Uploading Release APK ==="
+          APK_PATH=$(find android -name "*.apk" -path "*/release/*" -type f 2>/dev/null | head -1)
+          if [ -n "$APK_PATH" ]; then
+            echo "Found APK: $APK_PATH"
+            echo "Size: $(du -h "$APK_PATH" | cut -f1)"
+            # Upload using GitHub CLI
+            gh api repos/${{ github.repository }}/actions/artifacts \
+              --method POST \
+              --field name=app-release-apk \
+              --field file=@$APK_PATH \
+              --field content_type=application/vnd.android.package-archive
+            echo "=== APK Uploaded Successfully ==="
+          else
+            echo "ERROR: No release APK found"
+            exit 1
+          fi

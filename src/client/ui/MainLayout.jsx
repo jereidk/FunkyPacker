@@ -12,6 +12,7 @@ import Updater from './Updater.jsx';
 import EditCustomExporter from './EditCustomExporter.jsx';
 import SheetSplitter from './SheetSplitter.jsx';
 import MusicPlayer from './MusicPlayer.jsx';
+import ThemeToggle from './ThemeToggle.jsx';
 
 import {Observer, GLOBAL_EVENT} from '../Observer';
 
@@ -101,10 +102,12 @@ class MainLayout extends React.Component {
         let updater = this.state.updater ? (<Updater data={this.state.updater}/>) : null;
         let sheetSplitter = this.state.sheetSplitter ? (<SheetSplitter/>) : null;
         
-        // MusicPlayer only on Android
+        // Android-only components
         let musicPlayer = null;
+        let themeToggle = null;
         if (typeof PLATFORM !== 'undefined' && PLATFORM === 'android') {
             musicPlayer = <MusicPlayer/>;
+            themeToggle = <ThemeToggle/>;
         }
 
         return (
@@ -126,6 +129,7 @@ class MainLayout extends React.Component {
                 </div>
                 
                 {musicPlayer}
+                {themeToggle}
             </div>
         );
     }
