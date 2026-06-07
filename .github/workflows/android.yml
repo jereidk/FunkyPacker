@@ -42,8 +42,8 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v2
         with:
-          api-level: 34
-          build-tools: 34.0.0
+          api-level: 35
+          build-tools: 35.0.0
 
       - name: Build web app for Android
         run: npm run build-android
