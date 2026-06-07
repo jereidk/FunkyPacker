@@ -3,23 +3,45 @@ apply plugin: 'com.android.application'
 android {
     namespace = "com.funkinpacker.app"
     compileSdk = rootProject.ext.compileSdkVersion
+    
+    // Auto-increment versionCode for updates (YYYYMMDD + HHmm)
+    def getVersionCode = { ->
+        def date = new Date()
+        def dateCode = date.format('yyyyMMdd').toInteger()
+        def timeCode = date.format('HHmm').toInteger()
+        return dateCode * 100 + (timeCode / 100).toInteger()
+    }
+    
+    def getVersionName = { ->
+        def date = new Date()
+        return "1.${date.format('yyyyMMdd')}.${date.format('HHmm')}"
+    }
+    
     defaultConfig {
         applicationId "com.funkinpacker.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0"
+        versionCode getVersionCode()
+        versionName getVersionName()
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
-             // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
-             // Default: https://android.googlesource.com/platform/frameworks/base/+/282e181b58cf72b6ca770dc7ca5f91f135444502/tools/aapt/AaptAssets.cpp#61
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    
     buildTypes {
+        debug {
+            debuggable true
+        }
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+        }
+    }
+    
+    packagingOptions {
+        resources {
+            excludes += ['META-INF/LICENSE', 'META-INF/LICENSE-FIREBASE', 'META-INF/DEPENDENCIES']
         }
     }
 }
