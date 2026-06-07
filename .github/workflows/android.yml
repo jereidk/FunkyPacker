@@ -18,7 +18,7 @@ jobs:
     runs-on: macos-latest
     
     env:
-      JAVA_HOME: /Library/Java/JavaVirtualMachines/zulu-17.jdk/Contents/Home
+      JAVA_HOME: /Library/Java/JavaVirtualMachines/zulu-21.jdk/Contents/Home
     
     steps:
       - name: Checkout repository
@@ -33,11 +33,11 @@ jobs:
       - name: Install npm dependencies
         run: npm install --legacy-peer-deps
 
-      - name: Setup Java 17
+      - name: Setup Java 21
         uses: actions/setup-java@v4
         with:
           distribution: 'zulu'
-          java-version: '17'
+          java-version: '21'
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v2
