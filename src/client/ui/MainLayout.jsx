@@ -11,6 +11,7 @@ import OldBrowserBlocker from './OldBrowserBlocker.jsx';
 import Updater from './Updater.jsx';
 import EditCustomExporter from './EditCustomExporter.jsx';
 import SheetSplitter from './SheetSplitter.jsx';
+import LogConsole from './LogConsole.jsx';
 
 import {Observer, GLOBAL_EVENT} from '../Observer';
 
@@ -117,6 +118,8 @@ class MainLayout extends React.Component {
                     {shader}
                     {this.state.messageBox}
                 </div>
+                
+                <LogConsole/>
             </div>
         );
     }
