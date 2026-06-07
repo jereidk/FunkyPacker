@@ -3,6 +3,15 @@ import Splitter from './Splitter';
 
 import xmlParser from 'xml2js';
 
+// Remove BOM (Byte Order Mark) that causes xmldom errors
+const stripBOM = (data) => {
+    if (typeof data === 'string') {
+        // Remove UTF-8 BOM if present
+        return data.replace(/^\uFEFF/, '');
+    }
+    return data;
+};
+
 class Sparrow extends Splitter {
     static check(data, cb) {
         if(data == null) {
@@ -11,16 +20,13 @@ class Sparrow extends Splitter {
         }
 
         try {
-            if(data.startsWith("ï»¿")) data = data.slice(3);
+            const cleanData = stripBOM(data);
 
-            xmlParser.parseString(data, (err, atlas) => {
-                window.atlas = atlas;
-
+            xmlParser.parseString(cleanData, (err, atlas) => {
                 if(err) {
                     cb(false);
                     return;
                 }
-                window.atlas = atlas;
 
                 cb(atlas.TextureAtlas && Array.isArray(atlas.TextureAtlas.SubTexture));
             });
@@ -40,42 +46,24 @@ class Sparrow extends Splitter {
         }
 
         try {
-            if(data.startsWith("ï»¿")) data = data.slice(3);
+            const cleanData = stripBOM(data);
 
-            xmlParser.parseString(data, (err, atlas) => {
+            xmlParser.parseString(cleanData, (err, atlas) => {
                 if(err) {
+                    console.warn('[Sparrow] Parse error:', err.message);
                     cb(res);
                     return;
                 }
 
-                window.atlas = atlas;
-                //window.sparrowOrigMap = {};
-
                 let list = atlas.TextureAtlas.SubTexture;
 
-                //var firstName = null;
                 var order = [];
 
                 for(let item of list) {
                     item = item['$'];
 
                     var name = Splitter.fixFileName(item.name);
-
-                    //if(firstName === null) firstName = name;
                     order.push(name);
-
-                    /*var orig = {};
-                    orig.x = item.x;
-                    orig.y = item.y;
-                    orig.width = item.width;
-                    orig.height = item.height;
-                    orig.frameX = item.frameX;
-                    orig.frameY = item.frameY;
-                    orig.frameWidth = item.frameWidth;
-                    orig.frameHeight = item.frameHeight;
-                    orig.rotated = item.rotated;
-
-                    window.sparrowOrigMap[item.name] = orig;*/
 
                     let rotated = item.rotated === 'true';
                     if(rotated) {
@@ -124,14 +112,9 @@ class Sparrow extends Splitter {
                             w: item.frameWidth,
                             h: item.frameHeight
                         },
-                        //orig: orig,
                         rotated: rotated,
                         trimmed: trimmed
                     });
-
-                    //if(item.name.startsWith("up0")) {
-                    //    console.log(res[res.length-1]);
-                    //}
                 }
 
                 var maxSizes = {};
@@ -148,8 +131,6 @@ class Sparrow extends Splitter {
 
                     maxSizes[prefix].mw = Math.max(item.sourceSize.w, maxSizes[prefix].mw);
                     maxSizes[prefix].mh = Math.max(item.sourceSize.h, maxSizes[prefix].mh);
-                    //maxSizes[prefix].mw = Math.max(item.orig.width, maxSizes[prefix].mw);
-                    //maxSizes[prefix].mh = Math.max(item.orig.height, maxSizes[prefix].mh);
                 }
 
                 for(let item of res) {
@@ -158,13 +139,6 @@ class Sparrow extends Splitter {
                     item.sourceSize.mw = maxSizes[prefix].mw;
                     item.sourceSize.mh = maxSizes[prefix].mh;
                 }
-
-                window.sparrowMaxMap = maxSizes;
-
-                //console.log(maxSizes);
-
-                //window.__sparrow_firstName = firstName;
-                window.__sparrow_order = order;
 
                 cb(res);
             });

@@ -75,6 +75,7 @@ jobs:
           name: app-debug-apk
           path: android/app/build/outputs/apk/debug/*.apk
           retention-days: 30
+          compression-level: 0
 
       - name: Upload release APK
         if: github.event.inputs.build_type == 'release' || github.event.inputs.build_type == 'both'
@@ -83,3 +84,4 @@ jobs:
           name: app-release-apk
           path: android/app/build/outputs/apk/release/*.apk
           retention-days: 30
+          compression-level: 0
