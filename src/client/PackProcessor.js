@@ -4,6 +4,7 @@ import allPackers from './packers';
 import Trimmer from './utils/Trimmer';
 import TextureRenderer from './utils/TextureRenderer';
 import SmartSizeSolver from './utils/SmartSizeSolver';
+import { Observer, GLOBAL_EVENT } from './Observer';
 
 import I18 from './utils/I18';
 
@@ -286,7 +287,6 @@ class PackProcessor {
         }
 
         // Emit efficiency update
-        const { Observer, GLOBAL_EVENT } = require('./Observer');
         Observer.emit(GLOBAL_EVENT.EFFICIENCY_UPDATE, {
             efficiency: efficiency * 100,
             width: width,
@@ -330,7 +330,6 @@ class PackProcessor {
             const avgEfficiency = allResults.length > 0 ? (totalEfficiency / allResults.length) * 100 : 0;
 
             // Emit efficiency update
-            const { Observer, GLOBAL_EVENT } = require('./Observer');
             Observer.emit(GLOBAL_EVENT.EFFICIENCY_UPDATE, {
                 efficiency: avgEfficiency,
                 sheets: allResults.length,
