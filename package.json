@@ -58,8 +58,8 @@
   "scripts": {
     "start": "webpack-dev-server --host 127.0.0.1 --port 4000",
     "start-electron": "PLATFORM=electron webpack serve --host 127.0.0.1 --port 4000",
-    "build": "webpack",
-    "build-web": "PLATFORM=web webpack",
+    "build": "NODE_ENV=production webpack",
+    "build-web": "NODE_ENV=production PLATFORM=web webpack",
     "build-web-watch": "PLATFORM=web webpack --watch",
     "serve": "webpack serve --open",
     "build-electron": "PLATFORM=electron webpack",

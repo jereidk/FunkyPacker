@@ -14,7 +14,8 @@ let devtool = 'eval-source-map';
 let output = 'static/js/index.js';
 let debug = true;
 
-let prod = argv.build ? true : false;
+// Detect production mode: NODE_ENV=production or --mode production or --prod flag
+let prod = process.env.NODE_ENV === 'production' || argv.mode === 'production' || argv.prod || false;
 
 let PLATFORM = argv.platform || 'web';
 let mode = prod ? 'production' : 'development';
@@ -27,7 +28,7 @@ plugins.push(new webpack.DefinePlugin({
     'PLATFORM': JSON.stringify(PLATFORM)
 }));
 
-if (argv.build) {
+if (prod) {
     let outputDir;
 
     if (PLATFORM === 'web') {
