@@ -9,6 +9,13 @@ class SpritesPlayer extends React.Component {
     constructor(props) {
         super(props);
 
+        this.state = {
+            sparrowTextures: [],
+            sparrowAnimations: {},
+            selectedSparrowAnim: null,
+            xmlError: null
+        };
+
         this.textures = [];
 
         this.currentTextures = [];
