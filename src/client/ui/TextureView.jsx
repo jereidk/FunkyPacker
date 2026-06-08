@@ -5,121 +5,16 @@ import {Observer, GLOBAL_EVENT} from '../Observer';
 class TextureView extends React.Component {
     constructor(props) {
         super(props);
-        
-        this.state = {
-            scale: props.scale || 1,
-            translateX: 0,
-            translateY: 0,
-            isDragging: false,
-            lastTouchX: 0,
-            lastTouchY: 0,
-            initialDistance: 0,
-            initialScale: 1
-        };
 
         this.onViewClick = this.onViewClick.bind(this);
-        this.onTouchStart = this.onTouchStart.bind(this);
-        this.onTouchMove = this.onTouchMove.bind(this);
-        this.onTouchEnd = this.onTouchEnd.bind(this);
-        this.onWheel = this.onWheel.bind(this);
-        this.resetView = this.resetView.bind(this);
     }
 
     componentDidMount() {
         this.updateView();
-        
-        // Listen for reset zoom events (from Android Controller)
-        window.addEventListener('resetZoom', this.resetView);
-    }
-    
-    componentWillUnmount() {
-        window.removeEventListener('resetZoom', this.resetView);
     }
 
-    componentDidUpdate(prevProps) {
-        // Update view when data changes
-        if (prevProps.data !== this.props.data || prevProps.scale !== this.props.scale) {
-            this.updateView();
-        }
-    }
-    
-    getDistance(touch1, touch2) {
-        const dx = touch1.clientX - touch2.clientX;
-        const dy = touch1.clientY - touch2.clientY;
-        return Math.sqrt(dx * dx + dy * dy);
-    }
-    
-    onTouchStart(e) {
-        if (e.touches.length === 2) {
-            // Start pinch zoom
-            const distance = this.getDistance(e.touches[0], e.touches[1]);
-            this.setState({
-                initialDistance: distance,
-                initialScale: this.state.scale
-            });
-            e.preventDefault();
-        } else if (e.touches.length === 1) {
-            // Start drag
-            this.setState({
-                isDragging: true,
-                lastTouchX: e.touches[0].clientX,
-                lastTouchY: e.touches[0].clientY
-            });
-        }
-    }
-    
-    onTouchMove(e) {
-        if (e.touches.length === 2) {
-            // Pinch zoom
-            const distance = this.getDistance(e.touches[0], e.touches[1]);
-            const scaleChange = distance / this.state.initialDistance;
-            let newScale = this.state.initialScale * scaleChange;
-            
-            // Clamp scale between 0.1 and 10
-            newScale = Math.max(0.1, Math.min(10, newScale));
-            
-            this.setState({ scale: newScale });
-            e.preventDefault();
-        } else if (e.touches.length === 1 && this.state.isDragging) {
-            // Pan
-            const dx = e.touches[0].clientX - this.state.lastTouchX;
-            const dy = e.touches[0].clientY - this.state.lastTouchY;
-            
-            this.setState(prev => ({
-                translateX: prev.translateX + dx,
-                translateY: prev.translateY + dy,
-                lastTouchX: e.touches[0].clientX,
-                lastTouchY: e.touches[0].clientY
-            }));
-            
-            e.preventDefault();
-        }
-    }
-    
-    onTouchEnd(e) {
-        if (e.touches.length < 2) {
-            this.setState({
-                isDragging: false
-            });
-        }
-    }
-    
-    onWheel(e) {
-        // Mouse wheel zoom
-        const delta = e.deltaY > 0 ? 0.9 : 1.1;
-        const newScale = Math.max(0.1, Math.min(10, this.state.scale * delta));
-        
-        this.setState({ scale: newScale });
-        e.preventDefault();
-    }
-    
-    resetView() {
-        this.setState({
-            scale: this.props.scale || 1,
-            translateX: 0,
-            translateY: 0
-        });
-        console.log('[TextureView] View reset');
+    componentDidUpdate() {
+        this.updateView();
     }
 
     updateView() {
@@ -128,16 +23,8 @@ class TextureView extends React.Component {
             view.width = this.props.data.buffer.width;
             view.height = this.props.data.buffer.height;
 
-            // Use state scale for touch zoom, or props.scale for default
-            const displayScale = this.state.scale || this.props.scale;
-            
-            view.style.width = Math.floor(view.width * displayScale) + "px";
-            view.style.height = Math.floor(view.height * displayScale) + "px";
-            
-            // Apply transforms
-            const container = ReactDOM.findDOMNode(this.refs.back);
-            container.style.transform = `translate(${this.state.translateX}px, ${this.state.translateY}px)`;
-            container.style.transformOrigin = 'center center';
+            view.style.width = Math.floor(view.width * this.props.scale) + "px";
+            view.style.height = Math.floor(view.height * this.props.scale) + "px";
 
             let ctx = view.getContext("2d");
 
@@ -267,14 +154,7 @@ class TextureView extends React.Component {
 
     render() {
         return (
-            <div 
-                ref="back" 
-                className="texture-view"
-                onTouchStart={this.onTouchStart}
-                onTouchMove={this.onTouchMove}
-                onTouchEnd={this.onTouchEnd}
-                onWheel={this.onWheel}
-            >
+            <div ref="back" className="texture-view">
                 <canvas ref="view" onClick={this.onViewClick}> </canvas>
             </div>
         );

@@ -1,6 +1,7 @@
 const path = require('path');
 const webpack = require('webpack');
 const CopyWebpackPlugin = require('copy-webpack-plugin');
+//const argv = require('optimist').argv;
 
 let entry = [
     'babel-polyfill',
@@ -10,8 +11,7 @@ let entry = [
 let plugins = [];
 
 let devtool = 'eval-source-map';
-let outputPath = __dirname + '/dist';
-let outputFilename = 'static/js/index.js';
+let output = 'static/js/index.js';
 let debug = true;
 
 var prod = true;
@@ -20,12 +20,11 @@ var argv = {
     build: true
 }
 
-let PLATFORM = process.env.PLATFORM || argv.platform || 'web';
-let mode = prod ? 'production' : 'development';
+let PLATFORM = argv.platform || 'web';
+let mode = prod ? 'production' : 'development';//argv.build ? 'production' : 'development';
 
 let target = 'web';
 if (PLATFORM === 'electron') target = 'electron-renderer';
-if (PLATFORM === 'android') target = 'web';
 
 plugins.push(new webpack.DefinePlugin({
     'process.env.NODE_ENV': JSON.stringify(mode),
@@ -33,30 +32,20 @@ plugins.push(new webpack.DefinePlugin({
 }));
 
 if (argv.build) {
+    let outputDir;
+
     if (PLATFORM === 'web') {
-        outputPath = __dirname + '/dist/web';
-    }
-    if (PLATFORM === 'electron') {
-        outputPath = __dirname + '/../electron/www';
-    }
-    if (PLATFORM === 'android') {
-        outputPath = __dirname + '/android';
+        outputDir = 'web/';
     }
 
-    let copyDest;
-    if (PLATFORM === 'web') {
-        copyDest = __dirname + '/dist/web';
-    } else if (PLATFORM === 'electron') {
-        copyDest = __dirname + '/../electron/www';
-    } else {
-        copyDest = __dirname + '/android';
+    if (PLATFORM === 'electron') {
+        outputDir = '../electron/www/';
     }
-    plugins.push(new CopyWebpackPlugin([
-        {from: 'src/client/resources', to: copyDest},
-        {from: 'src/client/workers', to: copyDest + '/static/workers'}
-    ]));
+
+    plugins.push(new CopyWebpackPlugin([{from: 'src/client/resources', to: outputDir}]));
 
     devtool = false;
+    output = outputDir + 'static/js/index.js';
     debug = false;
 }
 else {
@@ -67,8 +56,8 @@ else {
 let config = {
     entry: entry,
     output: {
-        path: outputPath,
-        filename: outputFilename
+        path: __dirname + "/dist",
+        filename: output
     },
     devServer: {
         static: './dist',
@@ -109,8 +98,6 @@ let config = {
 
 if (target === 'electron-renderer') {
     config.resolve = {alias: {'platform': path.resolve(__dirname, './src/client/platform/electron')}};
-} else if (PLATFORM === 'android') {
-    config.resolve = {alias: {'platform': path.resolve(__dirname, './src/client/platform/android')}};
 } else {
     config.resolve = {alias: {'platform': path.resolve(__dirname, './src/client/platform/web')}};
 }

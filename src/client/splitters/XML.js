@@ -2,20 +2,10 @@ import Splitter from './Splitter';
 
 import xmlParser from 'xml2js';
 
-// Remove BOM (Byte Order Mark) that causes xmldom errors
-const stripBOM = (data) => {
-    if (typeof data === 'string') {
-        // Remove UTF-8 BOM if present
-        return data.replace(/^\uFEFF/, '');
-    }
-    return data;
-};
-
 class XML extends Splitter {
     static check(data, cb) {
         try {
-            const cleanData = stripBOM(data);
-            xmlParser.parseString(cleanData, (err, atlas) => {
+            xmlParser.parseString(data, (err, atlas) => {
                 if(err) {
                     cb(false);
                     return;
@@ -33,11 +23,9 @@ class XML extends Splitter {
         let res = [];
 
         try {
-            const cleanData = stripBOM(data);
 
-            xmlParser.parseString(cleanData, (err, atlas) => {
+            xmlParser.parseString(data, (err, atlas) => {
                 if(err) {
-                    console.warn('[XML] Parse error:', err.message);
                     cb(res);
                     return;
                 }
