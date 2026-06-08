@@ -3,10 +3,21 @@ import OptimalPacker from './packers/OptimalPacker';
 import allPackers from './packers';
 import Trimmer from './utils/Trimmer';
 import TextureRenderer from './utils/TextureRenderer';
+import SmartSizeSolver from './utils/SmartSizeSolver';
 
 import I18 from './utils/I18';
 
+const SOLVER_MODE = {
+    SCALE: 'scale',
+    AUTO: 'auto',
+    MULTI_ATLAS: 'multi-atlas',
+    MANUAL: 'manual'
+};
+
 class PackProcessor {
+    static solver = null;
+    static solverResult = null;
+    static currentMode = SOLVER_MODE.SCALE;
 
     static detectIdentical(rects, didTrim) {
         let identical = [];
@@ -114,7 +125,6 @@ class PackProcessor {
     }
 
     static pack(images = {}, options = {}, onComplete = null, onError = null) {
-        //debugger;
         let rects = [];
 
         let spritePadding = options.spritePadding || 0;
@@ -136,9 +146,8 @@ class PackProcessor {
             maxWidth += img.width;
             maxHeight += img.height;
 
-            // This is probably wrong
-            if (img.width > minWidth) minWidth = img.width + spritePadding * 2;// + borderPadding * 2;
-            if (img.height > minHeight) minHeight = img.height + spritePadding * 2;// + borderPadding * 2;
+            if (img.width > minWidth) minWidth = img.width + spritePadding * 2;
+            if (img.height > minHeight) minHeight = img.height + spritePadding * 2;
 
             rects.push({
                 frame: { x: 0, y: 0, w: img.width, h: img.height },
@@ -155,6 +164,19 @@ class PackProcessor {
         minWidth += borderPadding * 2;
         minHeight += borderPadding * 2;
 
+        // Store mode for use in async operations
+        this.currentMode = options.solverMode || SOLVER_MODE.SCALE;
+        
+        // Handle manual mode (original behavior)
+        if (this.currentMode === SOLVER_MODE.MANUAL) {
+            return this.packManual(rects, options, onComplete, onError, minWidth, minHeight, maxWidth, maxHeight);
+        }
+
+        // Handle smart size solving
+        this.packWithSolver(rects, options, onComplete, onError, minWidth, minHeight, maxWidth, maxHeight);
+    }
+
+    static packManual(rects, options, onComplete, onError, minWidth, minHeight, maxWidth, maxHeight) {
         let width = options.width || 0;
         let height = options.height || 0;
 
@@ -181,6 +203,188 @@ class PackProcessor {
             });
             return;
         }
+
+        this.executePacking(rects, options, onComplete, width, height);
+    }
+
+    static packWithSolver(rects, options, onComplete, onError, minWidth, minHeight, maxWidth, maxHeight) {
+        const solverOptions = {
+            spritePadding: options.spritePadding || 0,
+            borderPadding: options.borderPadding || 0,
+            allowRotation: options.allowRotation || false,
+            disableMaxLimit: options.disableMaxLimit || false
+        };
+
+        // Determine which mode to use
+        let effectiveMode = this.currentMode;
+        
+        // Auto mode: decide between SCALE and MULTI_ATLAS based on efficiency
+        if (this.currentMode === SOLVER_MODE.AUTO) {
+            // First calculate SCALE mode result
+            this.solver = new SmartSizeSolver();
+            this.solver.calculate(rects, solverOptions, null, (scaleResult) => {
+                if (scaleResult && scaleResult.efficiency >= 0.7) {
+                    effectiveMode = SOLVER_MODE.SCALE;
+                    this.executePackingWithSolver(rects, options, onComplete, scaleResult, SOLVER_MODE.SCALE);
+                } else {
+                    effectiveMode = SOLVER_MODE.MULTI_ATLAS;
+                    // Emit info about auto selection
+                    const efficiency = scaleResult ? (scaleResult.efficiency * 100).toFixed(1) : 'N/A';
+                    console.log(`Auto mode: switching to Multi-Atlas (single atlas efficiency: ${efficiency}%)`);
+                    this.executeMultiAtlas(rects, options, onComplete);
+                }
+            });
+            return;
+        }
+
+        // SCALE or MULTI_ATLAS modes
+        if (this.currentMode === SOLVER_MODE.SCALE) {
+            this.solver = new SmartSizeSolver();
+            this.solver.calculate(rects, solverOptions, null, (result) => {
+                this.executePackingWithSolver(rects, options, onComplete, result, SOLVER_MODE.SCALE);
+            });
+        } else if (this.currentMode === SOLVER_MODE.MULTI_ATLAS) {
+            this.executeMultiAtlas(rects, options, onComplete);
+        }
+    }
+
+    static executePackingWithSolver(rects, options, onComplete, solverResult, mode) {
+        let { width, height, efficiency } = solverResult;
+        const maxSizeLimit = options.disableMaxLimit ? 8192 : 4096;
+
+        // SCALE mode: check if needs scaling
+        let scale = 1;
+        if (mode === SOLVER_MODE.SCALE && (width > maxSizeLimit || height > maxSizeLimit)) {
+            const scaleResult = SmartSizeSolver.checkScaleRequired(width, height, maxSizeLimit);
+            scale = scaleResult.scale;
+            width = scaleResult.scaledWidth;
+            height = scaleResult.scaledHeight;
+        }
+
+        // Apply scale to rects for packing
+        let scaledRects = rects;
+        if (scale !== 1) {
+            scaledRects = rects.map(rect => ({
+                ...rect,
+                frame: {
+                    x: Math.round(rect.frame.x * scale),
+                    y: Math.round(rect.frame.y * scale),
+                    w: Math.round(rect.frame.w * scale),
+                    h: Math.round(rect.frame.h * scale)
+                },
+                sourceSize: {
+                    w: Math.round(rect.sourceSize.w * scale),
+                    h: Math.round(rect.sourceSize.h * scale)
+                },
+                spriteSourceSize: {
+                    x: Math.round(rect.spriteSourceSize.x * scale),
+                    y: Math.round(rect.spriteSourceSize.y * scale),
+                    w: Math.round(rect.spriteSourceSize.w * scale),
+                    h: Math.round(rect.spriteSourceSize.h * scale)
+                }
+            }));
+        }
+
+        // Emit efficiency update
+        const { Observer, GLOBAL_EVENT } = require('./Observer');
+        Observer.emit(GLOBAL_EVENT.EFFICIENCY_UPDATE, {
+            efficiency: efficiency * 100,
+            width: width,
+            height: height,
+            mode: mode,
+            scale: scale
+        });
+
+        this.executePacking(scaledRects, { ...options, scale: 1 }, onComplete, width, height);
+    }
+
+    static executeMultiAtlas(rects, options, onComplete) {
+        const solverOptions = {
+            spritePadding: options.spritePadding || 0,
+            borderPadding: options.borderPadding || 0,
+            allowRotation: options.allowRotation || false,
+            disableMaxLimit: options.disableMaxLimit || false
+        };
+
+        SmartSizeSolver.calculateMultiAtlas(rects, solverOptions, null, (sheets) => {
+            // Pack each sheet
+            let allResults = [];
+            let totalEfficiency = 0;
+
+            for (let i = 0; i < sheets.length; i++) {
+                const sheet = sheets[i];
+                const sheetRects = sheet.rects;
+                
+                // Execute packing for this sheet
+                const result = this.packSingleSheet(sheetRects, options, sheet.width, sheet.height);
+                allResults.push(result);
+                
+                const sheetArea = sheet.width * sheet.height;
+                let spriteArea = 0;
+                for (let rect of sheetRects) {
+                    spriteArea += rect.sourceSize.w * rect.sourceSize.h;
+                }
+                totalEfficiency += spriteArea / sheetArea;
+            }
+
+            const avgEfficiency = allResults.length > 0 ? (totalEfficiency / allResults.length) * 100 : 0;
+
+            // Emit efficiency update
+            const { Observer, GLOBAL_EVENT } = require('./Observer');
+            Observer.emit(GLOBAL_EVENT.EFFICIENCY_UPDATE, {
+                efficiency: avgEfficiency,
+                sheets: allResults.length,
+                mode: SOLVER_MODE.MULTI_ATLAS
+            });
+
+            if (onComplete) {
+                onComplete(allResults);
+            }
+        });
+    }
+
+    static packSingleSheet(rects, options, width, height) {
+        let spritePadding = options.spritePadding || 0;
+        let borderPadding = options.borderPadding || 0;
+        let alphaThreshold = options.alphaThreshold || 0;
+
+        if (alphaThreshold > 255) alphaThreshold = 255;
+
+        if (options.allowTrim) {
+            Trimmer.trim(rects, alphaThreshold);
+        }
+
+        let identical = [];
+        if (options.detectIdentical) {
+            let res = PackProcessor.detectIdentical(rects, options.allowTrim);
+            rects = res.rects;
+            identical = res.identical;
+        }
+
+        let packerClass = options.packer || MaxRectsBinPack;
+        let packerMethod = options.packerMethod || MaxRectsBinPack.methods.BestShortSideFit;
+
+        let packer = new packerClass(width, height, options.allowRotation || false, spritePadding);
+        let result = packer.pack(rects, packerMethod);
+
+        if (options.detectIdentical) {
+            result = PackProcessor.applyIdentical(result, identical);
+        }
+
+        for (let item of result) {
+            item.frame.x += borderPadding;
+            item.frame.y += borderPadding;
+        }
+
+        return result;
+    }
+
+    static executePacking(rects, options, onComplete, width, height) {
+        let spritePadding = options.spritePadding || 0;
+        let borderPadding = options.borderPadding || 0;
+        let alphaThreshold = options.alphaThreshold || 0;
+
+        if (alphaThreshold > 255) alphaThreshold = 255;
 
         if (options.allowTrim) {
             Trimmer.trim(rects, alphaThreshold);
@@ -227,7 +431,6 @@ class PackProcessor {
             let res = [];
             let sheetArea = 0;
 
-            // duplicate rects if more than 1 combo since the array is mutated in pack()
             let _rects = packerCombos.length > 1 ? rects.map(rect => {
                 return Object.assign({}, rect, {
                     frame: Object.assign({}, rect.frame),
@@ -236,9 +439,6 @@ class PackProcessor {
                 });
             }) : rects;
 
-            // duplicate identical if more than 1 combo and fix references to point to the
-            //  cloned rects since the array is mutated in applyIdentical()
-            // Optimize?
             let _identical = packerCombos.length > 1 ? identical.map(rect => {
                 for (let rect2 of _rects) {
                     if (rect.identical.image._base64 === rect2.image._base64) {
@@ -267,7 +467,6 @@ class PackProcessor {
 
             let sheets = res.length;
             let efficiency = sourceArea / sheetArea;
-            // TODO: calculate ram usage instead
 
             if (sheets < optimalSheets || (sheets === optimalSheets && efficiency > optimalEfficiency)) {
                 optimalRes = res;
@@ -277,7 +476,7 @@ class PackProcessor {
         }
 
         for (let sheet of optimalRes) {
-            for(let item of sheet) {
+            for (let item of sheet) {
                 item.frame.x += borderPadding;
                 item.frame.y += borderPadding;
             }

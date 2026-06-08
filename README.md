@@ -1,96 +1,134 @@
-# Funkin Packer
+# FunkyPacker
+
+**Smart Texture Packer for Friday Night Funkin' Modding**
 
 ![logo](https://raw.githubusercontent.com/odrick/free-tex-packer/master/electron/build/icons/96x96.png)
 
-#
+FunkyPacker es una herramienta web de empaquetado de texturas inteligente, diseñada específicamente para el modding de Friday Night Funkin'. Basado en [Funkin-Packer](https://github.com/NeeEoo/Funkin-Packer) con características avanzadas de optimización automática.
 
-Funkin packer creates sprite sheets for you game or site. Rotation, trimming, multipacking, various export formats (json, xml, css, pixi.js, godot, phaser, cocos2d). Zip support. Split sheet tool.
+## 🎯 Características Principales
 
-![screenshot](https://free-tex-packer.com/wp-content/uploads/2019/01/screenshot.png)
+### Smart Size Solver
+El sistema más inteligente de empaquetado para sprites de FNF:
 
-Web version: [https://neeeoo.github.io/funkin-packer/](https://neeeoo.github.io/funkin-packer/)
+- **Cálculo Paralelo con Web Workers**: Usa `navigator.hardwareConcurrency` para paralelizar el cálculo de dimensiones óptimas
+- **Límite de 4096px**: Protege GPUs de gama baja en Android (target principal de FNF)
+- **Eficiencia en Tiempo Real**: Muestra el porcentaje de uso del atlas
 
-# Custom templates
-Free texture packer uses [mustache](http://mustache.github.io/) template engine.
+### Selector de Modo (3 Estados)
 
-There are 3 objects passed to template:
+| Modo | Descripción |
+|------|-------------|
+| **SCALE** | Calcula dimensiones óptimas. Si excede 4096px, escala proporcionalmente todos los sprites |
+| **AUTO** | Decide automáticamente entre SCALE y MULTI-ATLAS. Si eficiencia SCALE < 70%, usa MULTI-ATLAS |
+| **MULTI-ATLAS** | Distribuye sprites en múltiples páginas optimizadas individualmente |
 
-**rects** (Array) list of sprites for export
+### Modo Manual
+Toggle para desactivar el solver automático y configurar Width/Height manualmente, manteniendo compatibilidad con el comportamiento original.
 
-| prop             | type    | description                     |
-| ---              | ---     | ---                             |
-| name             | String  | sprite name                     |
-| frame            | Object  | frame info (x, y, w, h, hw, hh) |
-| rotated          | Boolean | sprite rotation flag            |
-| trimmed          | Boolean | sprite trimmed flag             |
-| spriteSourceSize | Object  | sprite source size (x, y, w, h) |
-| sourceSize       | Object  | original size (w, h)            |
-| first            | Boolean | first element in array flag     |
-| last             | Boolean | last element in array flag      |
+## ⚙️ Configuración por Defecto (Optimizada para FNF)
 
-**config** (Object) current export config
+| Opción | Valor |
+|--------|-------|
+| Trim | ✅ Activado |
+| Padding | 0px |
+| Exporter | Sparrow Starling XML |
+| Allow Rotation | ❌ Desactivado |
 
-| prop           | type    | description                        |
-| ---            | ---     | ---                                |
-| imageWidth     | Number  | texture width                      |
-| imageHeight    | Number  | texture height                     |
-| scale          | Number  | texture scale                      |
-| format         | String  | texture format                     |
-| imageName      | String  | texture name                       |
-| imageFile      | String  | texture file (name with extension) |
-| base64Export   | Boolean | base64 export flag                 |
-| base64Prefix   | String  | prefix for base64 string           |
-| imageData      | String  | base64 image data                  |
+## 🚀 Despliegue
 
-**appInfo** (Object) application info
+### Desarrollo Local
 
-| prop           | type    | description          |
-| ---            | ---     | ---                  |
-| displayName    | String  | App name             |
-| version        | String  | App version          |
-| url            | String  | App url              |
+```bash
+# Instalar dependencias
+npm install
 
-**Example:**
+# Iniciar servidor de desarrollo (localhost:4000)
+npm start
 ```
-{
-  "frames": {
-    {{#rects}}
-    "{{{name}}}": {
-      "frame": {
-        "x": {{frame.x}},
-        "y": {{frame.y}},
-        "w": {{frame.w}},
-        "h": {{frame.h}}
-      },
-      "rotated": {{rotated}},
-      "trimmed": {{trimmed}},
-      "spriteSourceSize": {
-        "x": {{spriteSourceSize.x}},
-        "y": {{spriteSourceSize.y}},
-        "w": {{spriteSourceSize.w}},
-        "h": {{spriteSourceSize.h}}
-      },
-      "sourceSize": {
-        "w": {{sourceSize.w}},
-        "h": {{sourceSize.h}}
-      },
-      "pivot": {
-        "x": 0.5,
-        "y": 0.5
-      }
-    }{{^last}},{{/last}}
-    {{/rects}}
-  },
-  "meta": {
-    "app": "{{{appInfo.url}}}",
-    "version": "{{appInfo.version}}",
-    "image": "{{config.imageFile}}",
-    "format": "{{config.format}}",
-    "size": {
-      "w": {{config.imageWidth}},
-      "h": {{config.imageHeight}}
-    },
-    "scale": {{config.scale}}
-  }
-}
+
+### Build para Producción
+
+```bash
+# Generar archivos estáticos en dist/web/
+npm run build
 ```
+
+### Desplegar en GitHub Pages
+
+1. Haz commit del build en tu repositorio:
+   ```bash
+   git add dist/
+   git commit -m "Build production files"
+   ```
+
+2. Habilita GitHub Pages en el repositorio:
+   - Ve a **Settings > Pages**
+   - Source: Deploy from a branch
+   - Branch: `gh-pages` (o la rama donde esté el build)
+
+3. Los archivos en `dist/web/` se servirán públicamente desde:
+   ```
+   https://[username].github.io/[repo-name]/
+   ```
+
+## 📁 Estructura del Proyecto
+
+```
+FunkyPacker/
+├── src/
+│   └── client/
+│       ├── ui/              # Componentes React
+│       ├── utils/           # Utilidades (incluye SmartSizeSolver)
+│       ├── workers/         # Web Workers para cálculo paralelo
+│       ├── packers/         # Algoritmos de empaquetado
+│       ├── exporters/       # Formatos de exportación
+│       └── platform/        # API específica por plataforma
+├── dist/
+│   └── web/                 # Archivos estáticos para GitHub Pages
+├── webpack.config.js        # Configuración de build
+└── package.json             # Dependencias y scripts
+```
+
+## 🎨 Formatos de Exportación Soportados
+
+- **Sparrow Starling XML** (default)
+- JSON
+- CSS
+- Y otros del proyecto original
+
+## 🔧 Scripts Disponibles
+
+| Script | Descripción |
+|--------|-------------|
+| `npm start` | Inicia webpack-dev-server en localhost:4000 |
+| `npm run build` | Genera build de producción |
+| `npm run build-web` | Build específico para web (genera dist/web/) |
+
+## 📝 Notas Técnicas
+
+- **100% Client-Side**: No requiere backend
+- **Web Workers**: Cálculos paralelos sin bloquear la UI
+- **Compatibilidad**: No se modifica código Electron, Android/Capacitor, ni GitHub Actions
+
+## 🤝 Contribuir
+
+1. Fork el repositorio
+2. Crea una rama para tu feature (`git checkout -b feature/nueva-feature`)
+3. Commit tus cambios (`git commit -m 'Agregar nueva feature'`)
+4. Push a la rama (`git push origin feature/nueva-feature`)
+5. Abre un Pull Request
+
+## 📜 Licencia
+
+MIT License - Ver [LICENSE.md](./LICENSE.md)
+
+## 🙏 Créditos
+
+- Original: [Funkin-Packer](https://github.com/NeeEoo/Funkin-Packer) por Ne_Eo
+- Basado en: [Free-Tex-Packer](https://github.com/odrick/free-tex-packer) por odrick
+- Contributors del proyecto original
+
+---
+
+**FunkyPacker** - Smart packing for FNF modding 🎵

@@ -6,8 +6,10 @@ node_modules/*
 package-lock.json
 
 .DS_Store
-dist/*
-./dist/
+# dist/ contents are now allowed for GitHub Pages deployment
+# except nested dist folders from builds
+dist/dist
+dist/electron
+electron/www
 index.js
 index.js.map
-electron/www

@@ -19,6 +19,13 @@ import FileSystem from 'platform/FileSystem';
 const STORAGE_OPTIONS_KEY = "pack-options";
 const STORAGE_CUSTOM_EXPORTER_KEY = "custom-exporter";
 
+const SOLVER_MODE = {
+    SCALE: 'scale',
+    AUTO: 'auto',
+    MULTI_ATLAS: 'multi-atlas',
+    MANUAL: 'manual'
+};
+
 let INSTANCE = null;
 
 class PackProperties extends React.Component {
@@ -33,17 +40,35 @@ class PackProperties extends React.Component {
         this.onExporterPropChanged = this.onExporterPropChanged.bind(this);
         this.forceUpdate = this.forceUpdate.bind(this);
         this.selectSavePath = this.selectSavePath.bind(this);
+        this.onSolverModeChange = this.onSolverModeChange.bind(this);
+        this.onManualToggle = this.onManualToggle.bind(this);
 
         this.packOptions = this.loadOptions();
         this.loadCustomExporter();
 
         window.applyOptionsDefaults = this.applyOptionsDefaults;
 
-        this.state = {packer: this.packOptions.packer};
+        this.state = {
+            packer: this.packOptions.packer,
+            solverMode: this.packOptions.solverMode || SOLVER_MODE.SCALE,
+            manualMode: this.packOptions.manualMode || false
+        };
+
+        // Listen for efficiency updates
+        Observer.on(GLOBAL_EVENT.EFFICIENCY_UPDATE, this.onEfficiencyUpdate.bind(this));
+        Observer.on(GLOBAL_EVENT.SOLVER_PROGRESS, this.onSolverProgress.bind(this));
     }
 
     static get i() {
         return INSTANCE;
+    }
+
+    onEfficiencyUpdate(data) {
+        this.setState({ efficiency: data });
+    }
+
+    onSolverProgress(data) {
+        this.setState({ solverProgress: data });
     }
 
     setOptions(data) {
@@ -77,25 +102,42 @@ class PackProperties extends React.Component {
         data.prependFolderName = data.prependFolderName === undefined ? true : data.prependFolderName;
         data.scale = data.scale || 1;
         data.filter = getFilterByType(data.filter) ? data.filter : filters[0].type;
-        data.exporter = getExporterByType(data.exporter) ? data.exporter : exporters[0].type;
+        
+        // Default exporter to Sparrow Starling XML for FNF
+        data.exporter = getExporterByType(data.exporter) ? data.exporter : 'Sparrow';
+        // Fallback to first exporter if Sparrow not found
+        if (!getExporterByType(data.exporter)) {
+            data.exporter = exporters[0].type;
+        }
+        
         data.base64Export = data.base64Export === undefined ? false : data.base64Export;
-        //data.tinify = data.tinify === undefined ? false : data.tinify;
-        //data.tinifyKey = data.tinifyKey === undefined ? "" : data.tinifyKey;
         data.fileName = data.fileName || "pack-result";
         data.savePath = data.savePath || "";
-        data.width = data.width === undefined ? 8192 : data.width;
-        data.height = data.height === undefined ? 8192 : data.height;
+        data.width = data.width === undefined ? 0 : data.width;
+        data.height = data.height === undefined ? 0 : data.height;
         data.fixedSize = data.fixedSize === undefined ? false : data.fixedSize;
         data.powerOfTwo = data.powerOfTwo === undefined ? false : data.powerOfTwo;
-        data.spritePadding = data.spritePadding === undefined ? 3 : data.spritePadding;
-        data.borderPadding = data.borderPadding === undefined ? 1 : data.borderPadding;
+        
+        // Default padding to 0px for FNF
+        data.spritePadding = data.spritePadding === undefined ? 0 : data.spritePadding;
+        data.borderPadding = data.borderPadding === undefined ? 0 : data.borderPadding;
+        
+        // Default rotation OFF
         data.allowRotation = data.allowRotation === undefined ? false : data.allowRotation;
+        
+        // Default trim ON
         data.allowTrim = data.allowTrim === undefined ? true : data.allowTrim;
+        
         data.trimMode = data.trimMode === undefined ? "trim" : data.trimMode;
         data.alphaThreshold = data.alphaThreshold || 0;
         data.detectIdentical = data.detectIdentical === undefined ? true : data.detectIdentical;
         data.sortExportedRows = data.sortExportedRows === undefined ? true : data.sortExportedRows;
         data.packer = getPackerByType(data.packer) ? data.packer : packers[2].type;
+
+        // Solver mode defaults
+        data.solverMode = data.solverMode || SOLVER_MODE.SCALE;
+        data.manualMode = data.manualMode === undefined ? false : data.manualMode;
+        data.disableMaxLimit = data.disableMaxLimit === undefined ? false : data.disableMaxLimit;
 
         let methodValid = false;
         let packer = getPackerByType(data.packer);
@@ -131,8 +173,6 @@ class PackProperties extends React.Component {
         data.removeFileExtension = ReactDOM.findDOMNode(this.refs.removeFileExtension).checked;
         data.prependFolderName = ReactDOM.findDOMNode(this.refs.prependFolderName).checked;
         data.base64Export = ReactDOM.findDOMNode(this.refs.base64Export).checked;
-        //data.tinify = ReactDOM.findDOMNode(this.refs.tinify).checked;
-        //data.tinifyKey = ReactDOM.findDOMNode(this.refs.tinifyKey).value;
         data.scale = Number(ReactDOM.findDOMNode(this.refs.scale).value);
         data.filter = ReactDOM.findDOMNode(this.refs.filter).value;
         data.exporter = ReactDOM.findDOMNode(this.refs.exporter).value;
@@ -152,6 +192,11 @@ class PackProperties extends React.Component {
         data.packer = ReactDOM.findDOMNode(this.refs.packer).value;
         data.packerMethod = ReactDOM.findDOMNode(this.refs.packerMethod).value;
         data.sortExportedRows = ReactDOM.findDOMNode(this.refs.sortExportedRows).value;
+        
+        // Solver options
+        data.solverMode = this.state.solverMode;
+        data.manualMode = this.state.manualMode;
+        data.disableMaxLimit = ReactDOM.findDOMNode(this.refs.disableMaxLimit) ? ReactDOM.findDOMNode(this.refs.disableMaxLimit).checked : false;
 
         this.packOptions = this.applyOptionsDefaults(data);
     }
@@ -162,8 +207,6 @@ class PackProperties extends React.Component {
         ReactDOM.findDOMNode(this.refs.removeFileExtension).checked = this.packOptions.removeFileExtension;
         ReactDOM.findDOMNode(this.refs.prependFolderName).checked = this.packOptions.prependFolderName;
         ReactDOM.findDOMNode(this.refs.base64Export).checked = this.packOptions.base64Export;
-        //ReactDOM.findDOMNode(this.refs.tinify).checked = this.packOptions.tinify;
-        //ReactDOM.findDOMNode(this.refs.tinifyKey).value = this.packOptions.tinifyKey;
         ReactDOM.findDOMNode(this.refs.scale).value = Number(this.packOptions.scale);
         ReactDOM.findDOMNode(this.refs.filter).value = this.packOptions.filter;
         ReactDOM.findDOMNode(this.refs.exporter).value = this.packOptions.exporter;
@@ -183,6 +226,9 @@ class PackProperties extends React.Component {
         ReactDOM.findDOMNode(this.refs.packer).value = this.packOptions.packer;
         ReactDOM.findDOMNode(this.refs.packerMethod).value = this.packOptions.packerMethod;
         ReactDOM.findDOMNode(this.refs.sortExportedRows).value = this.packOptions.sortExportedRows;
+        if (ReactDOM.findDOMNode(this.refs.disableMaxLimit)) {
+            ReactDOM.findDOMNode(this.refs.disableMaxLimit).checked = this.packOptions.disableMaxLimit;
+        }
     }
 
     getPackOptions() {
@@ -264,17 +310,173 @@ class PackProperties extends React.Component {
         window.__sparrow_order = undefined;
     }
 
-    render() {
+    onSolverModeChange(mode) {
+        this.setState({ solverMode: mode });
+        this.packOptions.solverMode = mode;
+        this.saveOptions();
+        this.emitChanges();
+    }
 
+    onManualToggle() {
+        const newManualMode = !this.state.manualMode;
+        this.setState({ manualMode: newManualMode });
+        this.packOptions.manualMode = newManualMode;
+        this.saveOptions();
+        this.emitChanges();
+    }
+
+    getSolverModeLabel(mode) {
+        switch(mode) {
+            case SOLVER_MODE.SCALE: return 'SCALE';
+            case SOLVER_MODE.AUTO: return 'AUTO';
+            case SOLVER_MODE.MULTI_ATLAS: return 'MULTI-ATLAS';
+            default: return mode;
+        }
+    }
+
+    render() {
         let exporter = getExporterByType(this.packOptions.exporter);
         let allowRotation = this.packOptions.allowRotation && exporter.allowRotation;
         let exporterRotationDisabled = exporter.allowRotation ? "" : "disabled";
         let allowTrim = this.packOptions.allowTrim && exporter.allowTrim;
         let exporterTrimDisabled = exporter.allowTrim ? "" : "disabled";
+        
+        const { solverMode, manualMode, efficiency, solverProgress } = this.state;
 
         return (
             <div className="props-list back-white">
                 <div className="pack-properties-containter">
+                    {/* Smart Size Solver Section */}
+                    <div className="solver-section" style={{ marginBottom: '15px', padding: '10px', borderBottom: '1px solid #ccc' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+                            <span style={{ fontWeight: 'bold', fontSize: '14px' }}>Smart Size Solver</span>
+                            <label style={{ display: 'flex', alignItems: 'center', fontSize: '12px', cursor: 'pointer' }}>
+                                <span style={{ marginRight: '5px' }}>Manual</span>
+                                <input 
+                                    type="checkbox" 
+                                    checked={manualMode} 
+                                    onChange={this.onManualToggle}
+                                    style={{ cursor: 'pointer' }}
+                                />
+                            </label>
+                        </div>
+                        
+                        {!manualMode && (
+                            <>
+                                <div className="solver-mode-toggle" style={{ display: 'flex', gap: '5px', marginBottom: '10px' }}>
+                                    <button 
+                                        className={`mode-btn ${solverMode === SOLVER_MODE.SCALE ? 'active' : ''}`}
+                                        onClick={() => this.onSolverModeChange(SOLVER_MODE.SCALE)}
+                                        style={{ 
+                                            flex: 1, 
+                                            padding: '8px 5px', 
+                                            border: '1px solid #888', 
+                                            background: solverMode === SOLVER_MODE.SCALE ? '#4a90d9' : '#fff',
+                                            color: solverMode === SOLVER_MODE.SCALE ? '#fff' : '#333',
+                                            cursor: 'pointer',
+                                            fontSize: '11px',
+                                            fontWeight: 'bold'
+                                        }}
+                                    >
+                                        SCALE
+                                    </button>
+                                    <button 
+                                        className={`mode-btn ${solverMode === SOLVER_MODE.AUTO ? 'active' : ''}`}
+                                        onClick={() => this.onSolverModeChange(SOLVER_MODE.AUTO)}
+                                        style={{ 
+                                            flex: 1, 
+                                            padding: '8px 5px', 
+                                            border: '1px solid #888', 
+                                            background: solverMode === SOLVER_MODE.AUTO ? '#4a90d9' : '#fff',
+                                            color: solverMode === SOLVER_MODE.AUTO ? '#fff' : '#333',
+                                            cursor: 'pointer',
+                                            fontSize: '11px',
+                                            fontWeight: 'bold'
+                                        }}
+                                    >
+                                        AUTO
+                                    </button>
+                                    <button 
+                                        className={`mode-btn ${solverMode === SOLVER_MODE.MULTI_ATLAS ? 'active' : ''}`}
+                                        onClick={() => this.onSolverModeChange(SOLVER_MODE.MULTI_ATLAS)}
+                                        style={{ 
+                                            flex: 1, 
+                                            padding: '8px 5px', 
+                                            border: '1px solid #888', 
+                                            background: solverMode === SOLVER_MODE.MULTI_ATLAS ? '#4a90d9' : '#fff',
+                                            color: solverMode === SOLVER_MODE.MULTI_ATLAS ? '#fff' : '#333',
+                                            cursor: 'pointer',
+                                            fontSize: '11px',
+                                            fontWeight: 'bold'
+                                        }}
+                                    >
+                                        MULTI-ATLAS
+                                    </button>
+                                </div>
+                                
+                                <div style={{ fontSize: '11px', color: '#666', marginBottom: '5px' }}>
+                                    {solverMode === SOLVER_MODE.SCALE && 'Calcula dimensiones óptimas. Si excede 4096px, escala los sprites.'}
+                                    {solverMode === SOLVER_MODE.AUTO && 'Elige automáticamente entre SCALE y MULTI-ATLAS según eficiencia.'}
+                                    {solverMode === SOLVER_MODE.MULTI_ATLAS && 'Distribuye sprites en múltiples páginas optimizadas.'}
+                                </div>
+                                
+                                <label style={{ display: 'flex', alignItems: 'center', fontSize: '11px', marginTop: '5px' }}>
+                                    <input 
+                                        ref="disableMaxLimit" 
+                                        type="checkbox" 
+                                        className="border-color-gray" 
+                                        defaultChecked={this.packOptions.disableMaxLimit}
+                                        onChange={this.onPropChanged}
+                                        style={{ marginRight: '5px' }}
+                                    />
+                                    Desactivar límite 4096px
+                                </label>
+                            </>
+                        )}
+                        
+                        {manualMode && (
+                            <div style={{ fontSize: '11px', color: '#666' }}>
+                                Modo manual activo. Configure Width y Height manualmente abajo.
+                            </div>
+                        )}
+                        
+                        {/* Efficiency indicator */}
+                        {efficiency && (
+                            <div style={{ 
+                                marginTop: '10px', 
+                                padding: '8px', 
+                                background: '#f0f0f0', 
+                                borderRadius: '4px',
+                                fontSize: '12px'
+                            }}>
+                                <div style={{ fontWeight: 'bold' }}>
+                                    Eficiencia: {efficiency.efficiency.toFixed(1)}%
+                                </div>
+                                <div style={{ color: '#666' }}>
+                                    {efficiency.width}×{efficiency.height}px
+                                    {efficiency.sheets && ` • ${efficiency.sheets} hojas`}
+                                    {efficiency.scale && efficiency.scale < 1 && ` • Scale: ${efficiency.scale.toFixed(2)}`}
+                                </div>
+                                {efficiency.mode === 'auto' && (
+                                    <div style={{ fontSize: '10px', color: '#888', marginTop: '3px' }}>
+                                        Auto eligió: {efficiency.mode === SOLVER_MODE.SCALE ? 'SCALE' : 'MULTI-ATLAS'}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                        
+                        {/* Solver progress */}
+                        {solverProgress && solverProgress.completedWorkers < solverProgress.totalWorkers && (
+                            <div style={{ 
+                                marginTop: '8px', 
+                                fontSize: '11px', 
+                                color: '#666' 
+                            }}>
+                                Calculando... {solverProgress.completedWorkers}/{solverProgress.totalWorkers} workers
+                            </div>
+                        )}
+                    </div>
+
                     <table>
                         <tbody>
                             <tr title={I18.f("TEXTURE_NAME_TITLE")}>
@@ -307,16 +509,6 @@ class PackProperties extends React.Component {
                                 <td><input ref="base64Export" className="border-color-gray" type="checkbox" defaultChecked={this.packOptions.base64Export ? "checked" : ""} onChange={this.onExporterPropChanged} /></td>
                                 <td></td>
                             </tr>
-                            {/* <tr title={I18.f("TINIFY_TITLE")}>
-                                <td>{I18.f("TINIFY")}</td>
-                                <td><input ref="tinify" className="border-color-gray" type="checkbox" defaultChecked={this.packOptions.tinify ? "checked" : ""} onChange={this.onExporterPropChanged} /></td>
-                                <td></td>
-                            </tr> */}
-                            {/* <tr title={I18.f("TINIFY_KEY_TITLE")}>
-                                <td>{I18.f("TINIFY_KEY")}</td>
-                                <td><input ref="tinifyKey" type="text" className="border-color-gray" defaultValue={this.packOptions.tinifyKey} onBlur={this.onExporterPropChanged} /></td>
-                                <td></td>
-                            </tr> */}
                             <tr title={I18.f("SCALE_TITLE")}>
                                 <td>{I18.f("SCALE")}</td>
                                 <td><input ref="scale" type="number" min="0" className="border-color-gray" defaultValue={this.packOptions.scale} onBlur={this.onPropChanged}/></td>
@@ -364,16 +556,22 @@ class PackProperties extends React.Component {
                                 </td>
                             </tr>
 
-                            <tr title={I18.f("WIDTH_TITLE")}>
-                                <td>{I18.f("WIDTH")}</td>
-                                <td><input ref="width" type="number" min="0" className="border-color-gray" defaultValue={this.packOptions.width} onBlur={this.onPropChanged} onKeyDown={this.forceUpdate}/></td>
-                                <td></td>
-                            </tr>
-                            <tr title={I18.f("HEIGHT_TITLE")}>
-                                <td>{I18.f("HEIGHT")}</td>
-                                <td><input ref="height" type="number" min="0" className="border-color-gray" defaultValue={this.packOptions.height} onBlur={this.onPropChanged} onKeyDown={this.forceUpdate}/></td>
-                                <td></td>
-                            </tr>
+                            {/* Manual mode only - Width and Height fields */}
+                            {manualMode && (
+                                <>
+                                    <tr title={I18.f("WIDTH_TITLE")}>
+                                        <td>{I18.f("WIDTH")}</td>
+                                        <td><input ref="width" type="number" min="0" className="border-color-gray" defaultValue={this.packOptions.width || 8192} onBlur={this.onPropChanged} onKeyDown={this.forceUpdate}/></td>
+                                        <td></td>
+                                    </tr>
+                                    <tr title={I18.f("HEIGHT_TITLE")}>
+                                        <td>{I18.f("HEIGHT")}</td>
+                                        <td><input ref="height" type="number" min="0" className="border-color-gray" defaultValue={this.packOptions.height || 8192} onBlur={this.onPropChanged} onKeyDown={this.forceUpdate}/></td>
+                                        <td></td>
+                                    </tr>
+                                </>
+                            )}
+
                             <tr title={I18.f("PADDING_TITLE")}>
                                 <td>{I18.f("PADDING")}</td>
                                 <td><input ref="spritePadding" type="number" className="border-color-gray" defaultValue={this.packOptions.spritePadding} min="0" onInput={this.onPropChanged} onKeyDown={this.forceUpdate}/></td>

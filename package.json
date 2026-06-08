@@ -1,11 +1,9 @@
 {
-  "name": "funkin-packer",
-  "displayName": "Funkin Packer",
-  "version": "0.1.3",
-  "description": "Free online texture packer",
-  "url": "https://neeeoo.github.io/funkin-packer/",
-  "download": "http://free-tex-packer.com/download",
-  "webApp": "http://free-tex-packer.com/app",
+  "name": "funky-packer",
+  "displayName": "FunkyPacker",
+  "version": "1.0.0",
+  "description": "Smart texture packer for Friday Night Funkin' modding with automatic atlas optimization",
+  "url": "https://jereidk.github.io/FunkyPacker/",
   "main": "src/index.js",
   "private": true,
   "localizations": [
@@ -51,6 +49,10 @@
     {
       "name": "Ne_Eo",
       "homepage": "https://github.com/NeeEoo"
+    },
+    {
+      "name": "jereidk",
+      "homepage": "https://github.com/jereidk"
     }
   ],
   "scripts": {
@@ -72,7 +74,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/odrick/free-tex-packer.git"
+    "url": "git+https://github.com/jereidk/FunkyPacker.git"
   },
   "keywords": [
     "texture",
@@ -83,16 +85,17 @@
     "spritesheet",
     "export",
     "sprite",
-    "2d"
+    "2d",
+    "funkin",
+    "friday-night-funkin",
+    "fnf"
   ],
-  "author": "Alexander Norinchak",
-  "authorSite": "https://github.com/odrick/",
-  "authorEmail": "norinchak@gmail.com",
-  "license": "ISC",
+  "author": "jereidk",
+  "license": "MIT",
   "bugs": {
-    "url": "https://github.com/odrick/free-tex-packer/issues"
+    "url": "https://github.com/jereidk/FunkyPacker/issues"
   },
-  "homepage": "https://github.com/odrick/free-tex-packer",
+  "homepage": "https://github.com/jereidk/FunkyPacker",
   "devDependencies": {
     "@babel/core": "^7.6.4",
     "@babel/preset-env": "^7.6.3",

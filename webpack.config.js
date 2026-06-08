@@ -1,7 +1,6 @@
 const path = require('path');
 const webpack = require('webpack');
 const CopyWebpackPlugin = require('copy-webpack-plugin');
-//const argv = require('optimist').argv;
 
 let entry = [
     'babel-polyfill',
@@ -11,7 +10,8 @@ let entry = [
 let plugins = [];
 
 let devtool = 'eval-source-map';
-let output = 'static/js/index.js';
+let outputPath = __dirname + '/dist';
+let outputFilename = 'static/js/index.js';
 let debug = true;
 
 var prod = true;
@@ -33,24 +33,27 @@ plugins.push(new webpack.DefinePlugin({
 }));
 
 if (argv.build) {
-    let outputDir;
-
     if (PLATFORM === 'web') {
-        outputDir = 'web/';
+        outputPath = __dirname + '/dist/web';
     }
-
     if (PLATFORM === 'electron') {
-        outputDir = '../electron/www/';
+        outputPath = __dirname + '/../electron/www';
     }
-
     if (PLATFORM === 'android') {
-        outputDir = 'android/';
+        outputPath = __dirname + '/android';
     }
 
-    plugins.push(new CopyWebpackPlugin([{from: 'src/client/resources', to: outputDir}]));
+    let copyDest;
+    if (PLATFORM === 'web') {
+        copyDest = __dirname + '/dist/web';
+    } else if (PLATFORM === 'electron') {
+        copyDest = __dirname + '/../electron/www';
+    } else {
+        copyDest = __dirname + '/android';
+    }
+    plugins.push(new CopyWebpackPlugin([{from: 'src/client/resources', to: copyDest}]));
 
     devtool = false;
-    output = outputDir + 'static/js/index.js';
     debug = false;
 }
 else {
@@ -61,8 +64,8 @@ else {
 let config = {
     entry: entry,
     output: {
-        path: __dirname + "/dist",
-        filename: output
+        path: outputPath,
+        filename: outputFilename
     },
     devServer: {
         static: './dist',
