@@ -51,7 +51,10 @@ if (argv.build) {
     } else {
         copyDest = __dirname + '/android';
     }
-    plugins.push(new CopyWebpackPlugin([{from: 'src/client/resources', to: copyDest}]));
+    plugins.push(new CopyWebpackPlugin([
+        {from: 'src/client/resources', to: copyDest},
+        {from: 'src/client/workers', to: copyDest + '/static/workers'}
+    ]));
 
     devtool = false;
     debug = false;
