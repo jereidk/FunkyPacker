@@ -11,6 +11,7 @@ import OldBrowserBlocker from './OldBrowserBlocker.jsx';
 import Updater from './Updater.jsx';
 import EditCustomExporter from './EditCustomExporter.jsx';
 import SheetSplitter from './SheetSplitter.jsx';
+import MusicPlayer from './MusicPlayer.jsx';
 
 import {Observer, GLOBAL_EVENT} from '../Observer';
 
@@ -116,6 +117,7 @@ class MainLayout extends React.Component {
                     {updater}
                     {shader}
                     {this.state.messageBox}
+                    <MusicPlayer/>
                 </div>
             </div>
         );
