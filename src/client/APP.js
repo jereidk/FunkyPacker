@@ -4,6 +4,7 @@ import TextureRenderer from './utils/TextureRenderer';
 import { getFilterByType } from './filters';
 import I18 from './utils/I18';
 import { startExporter } from './exporters';
+import astcEncoder from './utils/astc/ASTCEncoder';
 //import Tinifyer from 'platform/Tinifyer';
 import Downloader from 'platform/Downloader';
 
@@ -170,10 +171,38 @@ class APP {
 
             let buffer = item.renderer.scale(this.packOptions.scale);
 
-            let imageData = filter.apply(buffer).toDataURL(this.packOptions.textureFormat === "png" ? "image/png" : "image/jpeg");
-            let parts = imageData.split(",");
-            parts.shift();
-            imageData = parts.join(",");
+            let imageData;
+            let astcMeta = null;
+
+            if (this.packOptions.textureFormat === 'astc') {
+                // Generate ASTC texture
+                const canvas = filter.apply(buffer);
+                const ctx = canvas.getContext('2d');
+                const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+                // Get ASTC options from packOptions (with defaults)
+                const astcOptions = {
+                    blockSize: this.packOptions.astcBlockSize || '4x4',
+                    quality: this.packOptions.astcQuality || 'medium',
+                    colorProfile: this.packOptions.astcColorProfile || 'ldr-rgba'
+                };
+
+                // Encode to ASTC
+                const astcData = await astcEncoder.encode(imgData, astcOptions);
+
+                // Store ASTC data as binary (will be converted to base64)
+                imageData = astcData;
+                astcMeta = {
+                    blockSize: astcOptions.blockSize,
+                    width: canvas.width,
+                    height: canvas.height
+                };
+            } else {
+                imageData = filter.apply(buffer).toDataURL(this.packOptions.textureFormat === "png" ? "image/png" : "image/jpeg");
+                let parts = imageData.split(",");
+                parts.shift();
+                imageData = parts.join(",");
+            }
 
             /*try {
                 imageData = await Tinifyer.start(imageData, this.packOptions);
@@ -184,19 +213,30 @@ class APP {
                 return;
             }*/
 
-            files.push({
-                name: `${fName}.${this.packOptions.textureFormat}`,
-                content: imageData,
-                base64: true
-            });
+            if (this.packOptions.textureFormat === 'astc') {
+                // For ASTC, we need to store as binary array
+                files.push({
+                    name: `${fName}.astc`,
+                    content: Array.from(new Uint8Array(imageData)),
+                    binary: true,
+                    astcMeta: astcMeta
+                });
+            } else {
+                files.push({
+                    name: `${fName}.${this.packOptions.textureFormat}`,
+                    content: imageData,
+                    base64: true
+                });
+            }
 
             //TODO: move to options
-            let pixelFormat = this.packOptions.textureFormat === "png" ? "RGBA8888" : "RGB888";
+            let pixelFormat = this.packOptions.textureFormat === "png" ? "RGBA8888" :
+                              this.packOptions.textureFormat === "astc" ? "ASTC_4x4" : "RGB888";
 
             let options = {
                 imageName: `${fName}`,
-                imageFile: `${fName}.${this.packOptions.textureFormat}`,
-                imageData: imageData,
+                imageFile: `${fName}.${this.packOptions.textureFormat === 'astc' ? 'astc' : this.packOptions.textureFormat}`,
+                imageData: this.packOptions.textureFormat === 'astc' ? undefined : imageData,
                 format: pixelFormat,
                 textureFormat: this.packOptions.textureFormat,
                 imageWidth: buffer.width,

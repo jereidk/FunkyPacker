@@ -12,6 +12,7 @@ import Updater from './Updater.jsx';
 import EditCustomExporter from './EditCustomExporter.jsx';
 import SheetSplitter from './SheetSplitter.jsx';
 import MusicPlayer from './MusicPlayer.jsx';
+import ASTCConverter from './ASTCConverter.jsx';
 
 import {Observer, GLOBAL_EVENT} from '../Observer';
 
@@ -118,6 +119,7 @@ class MainLayout extends React.Component {
                     {shader}
                     {this.state.messageBox}
                     <MusicPlayer/>
+                    <ASTCConverter/>
                 </div>
             </div>
         );

@@ -130,6 +130,15 @@ class PackProperties extends React.Component {
 
         data.textureName = ReactDOM.findDOMNode(this.refs.textureName).value;
         data.textureFormat = ReactDOM.findDOMNode(this.refs.textureFormat).value;
+        
+        // ASTC options
+        if (this.refs.astcBlockSize) {
+            data.astcBlockSize = ReactDOM.findDOMNode(this.refs.astcBlockSize).value;
+        }
+        if (this.refs.astcQuality) {
+            data.astcQuality = ReactDOM.findDOMNode(this.refs.astcQuality).value;
+        }
+        
         data.removeFileExtension = ReactDOM.findDOMNode(this.refs.removeFileExtension).checked;
         data.prependFolderName = ReactDOM.findDOMNode(this.refs.prependFolderName).checked;
         data.base64Export = ReactDOM.findDOMNode(this.refs.base64Export).checked;
@@ -294,6 +303,32 @@ class PackProperties extends React.Component {
                                     <select ref="textureFormat" className="border-color-gray" defaultValue={this.packOptions.textureFormat} onChange={this.onExporterChanged}>
                                         <option value="png">png</option>
                                         <option value="jpg">jpg</option>
+                                        <option value="astc">ASTC (Android)</option>
+                                    </select>
+                                </td>
+                                <td></td>
+                            </tr>
+                            {/* ASTC Configuration Options - Show only when ASTC is selected */}
+                            <tr ref="astcConfig" style={{ display: this.packOptions.textureFormat === 'astc' ? '' : 'none' }}>
+                                <td>ASTC Block:</td>
+                                <td>
+                                    <select ref="astcBlockSize" className="border-color-gray" defaultValue={this.packOptions.astcBlockSize || '4x4'} onChange={this.onExporterPropChanged}>
+                                        <option value="4x4">4×4 (Mejor calidad)</option>
+                                        <option value="5x5">5×5</option>
+                                        <option value="6x6">6×6</option>
+                                        <option value="8x8">8×8 (Mejor compresión)</option>
+                                    </select>
+                                </td>
+                                <td></td>
+                            </tr>
+                            <tr ref="astcQualityConfig" style={{ display: this.packOptions.textureFormat === 'astc' ? '' : 'none' }}>
+                                <td>ASTC Calidad:</td>
+                                <td>
+                                    <select ref="astcQuality" className="border-color-gray" defaultValue={this.packOptions.astcQuality || 'medium'} onChange={this.onExporterPropChanged}>
+                                        <option value="fast">Rápida</option>
+                                        <option value="medium">Media</option>
+                                        <option value="thorough">Detallada</option>
+                                        <option value="exhaustive">Exhaustiva</option>
                                     </select>
                                 </td>
                                 <td></td>
