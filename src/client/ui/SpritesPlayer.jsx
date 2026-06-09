@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom';
 import I18 from '../utils/I18';
 import {GLOBAL_EVENT, Observer} from "../Observer";
 import {cleanPrefix, smartSortImages} from '../utils/common';
+import sparrowStore from '../store/sparrowStore';
 
 class SpritesPlayer extends React.Component {
 
@@ -94,10 +95,6 @@ class SpritesPlayer extends React.Component {
         this.width = 0;
         this.height = 0;
 
-        if(window.sparrowMaxMap == undefined) {
-            window.sparrowMaxMap = {};
-        }
-
         for(let part of this.props.data) {
             let baseTexture = part.buffer;
 
@@ -107,9 +104,8 @@ class SpritesPlayer extends React.Component {
 
                 var prefix = cleanPrefix(config.originalFile || config.file || config.name);
 
-                if(window.sparrowMaxMap.hasOwnProperty(prefix)) {
-                    var maxMap = window.sparrowMaxMap[prefix];
-
+                var maxMap = sparrowStore.getMaxMapEntry(prefix);
+                if (maxMap) {
                     w = maxMap.mw;
                     h = maxMap.mh;
                 }
@@ -219,13 +215,8 @@ class SpritesPlayer extends React.Component {
 
         var prefix = cleanPrefix(texture.config.originalFile || texture.config.file || texture.config.name);
 
-        if(window.sparrowMaxMap == undefined) {
-            window.sparrowMaxMap = {};
-        }
-
-        if(window.sparrowMaxMap.hasOwnProperty(prefix)) {
-            var maxMap = window.sparrowMaxMap[prefix];
-
+        var maxMap = sparrowStore.getMaxMapEntry(prefix);
+        if (maxMap) {
             w = maxMap.mw;
             h = maxMap.mh;
         }
