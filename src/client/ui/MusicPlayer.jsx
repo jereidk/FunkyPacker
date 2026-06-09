@@ -151,7 +151,9 @@ class MusicPlayer extends React.Component {
                 sessionStorage.setItem('musicPlayer_localFiles', JSON.stringify(
                     updated.map(f => ({ name: f.name, artist: f.artist }))
                 ));
-            } catch (e) {}
+            } catch (e) {
+                console.warn('MusicPlayer: Failed to save local files to sessionStorage', e);
+            }
             return { localFiles: updated };
         });
     };

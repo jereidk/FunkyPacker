@@ -1,5 +1,6 @@
 import { cleanPrefix } from '../utils/common';
 import Splitter from './Splitter';
+import sparrowStore from '../store/sparrowStore';
 
 import xmlParser from 'xml2js';
 
@@ -14,13 +15,11 @@ class Sparrow extends Splitter {
             if(data.startsWith("ï»¿")) data = data.slice(3);
 
             xmlParser.parseString(data, (err, atlas) => {
-                window.atlas = atlas;
-
                 if(err) {
                     cb(false);
                     return;
                 }
-                window.atlas = atlas;
+                sparrowStore.setAtlas(atlas);
 
                 cb(atlas.TextureAtlas && Array.isArray(atlas.TextureAtlas.SubTexture));
             });
@@ -48,7 +47,7 @@ class Sparrow extends Splitter {
                     return;
                 }
 
-                window.atlas = atlas;
+                sparrowStore.setAtlas(atlas);
                 //window.sparrowOrigMap = {};
 
                 let list = atlas.TextureAtlas.SubTexture;
@@ -159,12 +158,12 @@ class Sparrow extends Splitter {
                     item.sourceSize.mh = maxSizes[prefix].mh;
                 }
 
-                window.sparrowMaxMap = maxSizes;
+                sparrowStore.setMaxMap(maxSizes);
 
                 //console.log(maxSizes);
 
                 //window.__sparrow_firstName = firstName;
-                window.__sparrow_order = order;
+                sparrowStore.setOrder(order);
 
                 cb(res);
             });

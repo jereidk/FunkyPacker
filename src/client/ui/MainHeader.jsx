@@ -4,6 +4,7 @@ import {Observer, GLOBAL_EVENT} from '../Observer';
 import I18 from '../utils/I18';
 import appInfo from '../../../package.json';
 import languages from '../resources/static/localization/languages.json';
+import AtlasStatsHeader from './AtlasStatsHeader.jsx';
 
 class MainHeader extends React.Component {
     constructor(props) {
@@ -37,10 +38,9 @@ class MainHeader extends React.Component {
                     ?
                 </div> */}
 
-                {/* <div className='main-header-info'>
-                    <div>0x0</div>
-                    <div>0 Bytes</div>
-                </div> */}
+                <div className='main-header-info'>
+                    <AtlasStatsHeader />
+                </div>
 
                 <div className='main-header-github'>
                     <a href="https://github.com/NeeEoo/funkin-tex-packer">

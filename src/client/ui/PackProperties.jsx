@@ -15,6 +15,7 @@ import I18 from '../utils/I18';
 import {Observer, GLOBAL_EVENT} from '../Observer';
 
 import FileSystem from 'platform/FileSystem';
+import sparrowStore from '../store/sparrowStore';
 
 const STORAGE_OPTIONS_KEY = "pack-options";
 const STORAGE_CUSTOM_EXPORTER_KEY = "custom-exporter";
@@ -275,8 +276,8 @@ class PackProperties extends React.Component {
         }
     }
 
-    clearOrder() {
-        window.__sparrow_order = undefined;
+    clearSparrowOrder() {
+        sparrowStore.clearOrder();
     }
 
     render() {
@@ -286,6 +287,7 @@ class PackProperties extends React.Component {
         let exporterRotationDisabled = exporter.allowRotation ? "" : "disabled";
         let allowTrim = this.packOptions.allowTrim && exporter.allowTrim;
         let exporterTrimDisabled = exporter.allowTrim ? "" : "disabled";
+        let hasOrder = sparrowStore.hasOrder();
 
         return (
             <div className="props-list back-white">
@@ -487,7 +489,7 @@ class PackProperties extends React.Component {
 
                             <tr title={I18.f("CLEAR_STORED_ORDER_TITLE")}>
                                 <td colSpan="3" className="center-align">
-                                    <div className={"btn "+ (window.__sparrow_order == undefined ? "back-400" : "back-800") +" border-color-gray color-white"} onClick={this.clearOrder}>{I18.f("CLEAR_STORED_ORDER")}</div>
+                                    <div className={"btn "+ (hasOrder ? "back-800" : "back-400") +" border-color-gray color-white"} onClick={this.clearSparrowOrder}>{I18.f("CLEAR_STORED_ORDER")}</div>
                                 </td>
                             </tr>
 

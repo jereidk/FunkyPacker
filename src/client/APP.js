@@ -8,6 +8,22 @@ import astcEncoder from './utils/astc/ASTCEncoder';
 //import Tinifyer from 'platform/Tinifyer';
 import Downloader from 'platform/Downloader';
 
+// Idempotent polyfill at module scope - HMR-safe with configurable: true
+if (!HTMLImageElement.prototype.hasOwnProperty('__fpToDataURL')) {
+    Object.defineProperty(HTMLImageElement.prototype, '__fpToDataURL', { value: true, configurable: true, writable: true });
+    Object.defineProperty(HTMLImageElement.prototype, 'toDataURL', {
+        enumerable: false,
+        configurable: true,
+        writable: true,
+        value: function(m, q) {
+            let c = document.createElement('canvas');
+            c.width = this.naturalWidth; c.height = this.naturalHeight;
+            c.getContext('2d').drawImage(this, 0, 0); 
+            return c.toDataURL(m, q);
+        }
+    });
+}
+
 let INSTANCE = null;
 
 class APP {
@@ -26,63 +42,6 @@ class APP {
         Observer.on(GLOBAL_EVENT.PACK_OPTIONS_CHANGED, this.onPackOptionsChanged, this);
         Observer.on(GLOBAL_EVENT.PACK_EXPORTER_CHANGED, this.onPackExporterOptionsChanged, this);
         Observer.on(GLOBAL_EVENT.START_EXPORT, this.startExport, this);
-
-        Object.defineProperty(
-            HTMLImageElement.prototype,'toDataURL',
-            {enumerable:false,configurable:false,writable:false,value:function(m,q)
-            {
-                let c=document.createElement('canvas');
-                c.width=this.naturalWidth; c.height=this.naturalHeight;
-                c.getContext('2d').drawImage(this,0,0); return c.toDataURL(m,q);
-            }}
-        );
-
-        // IDK WHERE TO PUT THIS
-        setTimeout(function(){
-            function formatBytes(bytes, decimals = 2, si=1024) {
-                if (bytes === 0) return '0 Bytes';
-
-                const k = si;
-                const dm = decimals < 0 ? 0 : decimals;
-                const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'];
-
-                const i = Math.floor(Math.log(bytes) / Math.log(k));
-
-                return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
-            }
-            window.formatBytes = formatBytes;
-
-            var sizeElement = document.createElement("div");
-            sizeElement.style = "font-size: 20px; pointer-events: none;";
-            sizeElement.textContent = "0x0";
-
-            var ramSize = document.createElement("div");
-            ramSize.style = "font-size: 16px;position: relative;top: -90px; pointer-events: none;";
-            ramSize.textContent = "0 Bytes";
-
-            var header = document.getElementsByClassName("main-header")[0];
-
-            header.appendChild(sizeElement);
-            header.appendChild(ramSize);
-
-            const config = { attributes: true, childList: true, subtree: true };
-
-            const callback = function(mutationList, observer) {
-                var sizes = [...document.getElementsByClassName("texture-view")].map((v) => `${v.children[0].width}x${v.children[0].height}`);
-                var ramTotal = 0;
-                [...document.getElementsByClassName("texture-view")].forEach((v) => {
-                ramTotal+=parseInt(v.children[0].width,10)*parseInt(v.children[0].height,10)*4;
-                });
-                sizeElement.textContent = sizes.join(" + ");
-                if(sizeElement.textContent.length > 60) {
-                sizeElement.style = "font-size: 20px;";} else {sizeElement.style = "font-size: 14px;";}
-                ramSize.textContent = formatBytes(ramTotal, 3) + " | " + formatBytes(ramTotal, 3, 1000);
-            };
-
-            const observer = new MutationObserver(callback);
-            observer.observe(document.getElementsByClassName("results-view")[0], config);
-
-        }, 2000);
     }
 
     static get i() {
@@ -265,7 +224,13 @@ class APP {
             ix++;
         }
 
-        Downloader.run(files, this.packOptions.fileName, this.packOptions.savePath);
+        try {
+            await Downloader.run(files, this.packOptions.fileName, this.packOptions.savePath);
+        } catch (e) {
+            Observer.emit(GLOBAL_EVENT.HIDE_SHADER);
+            Observer.emit(GLOBAL_EVENT.SHOW_MESSAGE, I18.f("DOWNLOAD_ERROR", e));
+            return;
+        }
         Observer.emit(GLOBAL_EVENT.HIDE_SHADER);
     }
 }
