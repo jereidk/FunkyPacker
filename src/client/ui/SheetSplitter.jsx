@@ -10,6 +10,7 @@ import ReactDOM from "react-dom";
 import Downloader from "platform/Downloader";
 import ImagesList from "./ImagesList.jsx";
 import { cleanPrefix } from '../utils/common';
+import sparrowStore from '../store/sparrowStore';
 
 class SheetSplitter extends React.Component {
     constructor(props) {
@@ -94,10 +95,6 @@ class SheetSplitter extends React.Component {
 
         let disableuntrim = ReactDOM.findDOMNode(this.refs.disableuntrim).checked;
 
-        if(window.sparrowMaxMap == undefined) {
-            window.sparrowMaxMap = {};
-        }
-
         for(let item of this.frames) {
             let trimmed = item.trimmed ? disableuntrim : false;
 
@@ -106,9 +103,8 @@ class SheetSplitter extends React.Component {
             var ssw = item.sourceSize.w;
             var ssh = item.sourceSize.h;
 
-            if(window.sparrowMaxMap.hasOwnProperty(prefix)) {
-                var maxMap = window.sparrowMaxMap[prefix];
-
+            var maxMap = sparrowStore.getMaxMapEntry(prefix);
+            if (maxMap) {
                 ssw = maxMap.mw;
                 ssh = maxMap.mh;
             }
@@ -208,10 +204,6 @@ class SheetSplitter extends React.Component {
 
         let disableuntrim = ReactDOM.findDOMNode(this.refs.disableuntrim).checked;
 
-        if(window.sparrowMaxMap == undefined) {
-            window.sparrowMaxMap = {};
-        }
-
         for(let item of this.frames) {
             let trimmed = item.trimmed ? disableuntrim : false;
 
@@ -220,9 +212,8 @@ class SheetSplitter extends React.Component {
             var ssw = item.sourceSize.w;
             var ssh = item.sourceSize.h;
 
-            if(window.sparrowMaxMap.hasOwnProperty(prefix)) {
-                var maxMap = window.sparrowMaxMap[prefix];
-
+            var maxMap = sparrowStore.getMaxMapEntry(prefix);
+            if (maxMap) {
                 ssw = maxMap.mw;
                 ssh = maxMap.mh;
             }

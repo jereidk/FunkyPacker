@@ -20,7 +20,7 @@ class Downloader {
         let ext = fileName.split(".").pop();
         if(ext !== "zip") fileName = fileName + ".zip";
 
-        zip.generateAsync({type:"blob"}).then((content) => {
+        return zip.generateAsync({type:"blob"}).then((content) => {
             FileSaver.saveAs(content, fileName);
         });
     }

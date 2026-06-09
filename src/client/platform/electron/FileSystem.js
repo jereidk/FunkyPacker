@@ -94,7 +94,9 @@ class FileSystem {
                 watcher.add(path);
             }
         }
-        catch (e) { }
+        catch (e) { 
+            console.warn('FileSystem.startWatch error:', e);
+        }
     }
 
     static stopWatch(path) {
@@ -116,6 +118,7 @@ class FileSystem {
 
     static loadImages(list, cb) {
         let files = [];
+        let failedFiles = [];
 
         for (let item of list) {
             let path = item.path;
@@ -129,12 +132,17 @@ class FileSystem {
                     content = "data:image/" + ext + ";base64," + content;
                     files.push({ name: item.name, url: content, fsPath: item });
                 }
-                catch (e) { }
+                catch (e) { 
+                    failedFiles.push(item.name);
+                }
             }
         }
 
         let loader = new Base64ImagesLoader();
         loader.load(files, null, (res) => {
+            if (failedFiles.length > 0) {
+                Observer.emit(GLOBAL_EVENT.SHOW_MESSAGE, I18.f("LOAD_IMAGES_ERROR", failedFiles.join(', ')));
+            }
             if (cb) cb(res);
         });
     }

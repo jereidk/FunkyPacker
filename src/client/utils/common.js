@@ -77,11 +77,10 @@ function deepClone(obj) {
     return newObj;
 }
 
+// Migrated to sparrowStore.clearAll() - kept for backward compatibility
 function clearGlobals() {
-    window.atlas = undefined;
-    window.__sparrow_order = undefined;
-    window.sparrowOrigMap = undefined;
-    window.sparrowMaxMap = undefined;
+    const sparrowStore = require('../store/sparrowStore');
+    sparrowStore.clearAll();
 }
 
 module.exports = {
