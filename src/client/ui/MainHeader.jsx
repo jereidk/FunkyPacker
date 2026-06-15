@@ -11,6 +11,18 @@ class MainHeader extends React.Component {
         super(props);
 
         this.changeLanguage = this.changeLanguage.bind(this);
+        this.toggleTheme = this.toggleTheme.bind(this);
+        
+        // Load theme from localStorage or default to dark
+        const savedTheme = localStorage.getItem('funkypacker-theme') || 'dark';
+        this.state = {
+            theme: savedTheme
+        };
+    }
+
+    componentDidMount() {
+        // Apply theme on mount
+        document.documentElement.setAttribute('data-theme', this.state.theme);
     }
 
     /* showAbout() {
@@ -19,6 +31,13 @@ class MainHeader extends React.Component {
 
     changeLanguage(e) {
         Observer.emit(GLOBAL_EVENT.CHANGE_LANG, e.target.value);
+    }
+
+    toggleTheme() {
+        const newTheme = this.state.theme === 'dark' ? 'light' : 'dark';
+        this.setState({ theme: newTheme });
+        localStorage.setItem('funkypacker-theme', newTheme);
+        document.documentElement.setAttribute('data-theme', newTheme);
     }
 
     showSplitter() {
@@ -46,6 +65,10 @@ class MainHeader extends React.Component {
                     <a href="https://github.com/NeeEoo/funkin-tex-packer">
                         <img src="static/images/github-mark-white.png" height="25" alt="Github" />
                     </a>
+                </div>
+
+                <div className="main-header-theme" onClick={this.toggleTheme} title="Toggle Dark/Light Mode">
+                    {this.state.theme === 'dark' ? '☀️' : '🌙'}
                 </div>
 
                 <div className="main-header-language border-color-gray">

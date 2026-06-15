@@ -34,6 +34,10 @@ class SheetSplitter extends React.Component {
 
         this.textureName = '';
         this.dataName = '';
+        
+        // Auto-fill names for export
+        this.exportName = '';
+        this.zipName = '';
 
         this.buffer = document.createElement('canvas');
 
@@ -268,7 +272,11 @@ class SheetSplitter extends React.Component {
             });
         }
 
-        Downloader.run(files, this.textureName + '.zip');
+        // Use custom export name if provided, otherwise fallback to texture name
+        let exportName = this.exportNameInput ? this.exportNameInput.value : this.textureName;
+        let zipName = this.zipNameInput ? this.zipNameInput.value : this.textureName;
+        
+        Downloader.run(files, zipName + '.zip');
 
         Observer.emit(GLOBAL_EVENT.HIDE_SHADER);
     }
@@ -329,6 +337,19 @@ class SheetSplitter extends React.Component {
 
                 this.dataName = item.name;
                 ReactDOM.findDOMNode(this.refs.dataFileName).textContent = this.dataName;
+
+                // Auto-fill export names from data file name (e.g., "myAtlas.xml" -> "myAtlas")
+                let baseName = item.name.replace(/\.[^.]+$/, '');
+                this.exportName = baseName;
+                this.zipName = baseName;
+                
+                // Update the input fields if they exist
+                if (this.exportNameInput) {
+                    this.exportNameInput.value = this.exportName;
+                }
+                if (this.zipNameInput) {
+                    this.zipNameInput.value = this.zipName;
+                }
 
                 getSplitterByData(this.data, (splitter) => {
                     this.setState({splitter: splitter});
@@ -488,6 +509,30 @@ class SheetSplitter extends React.Component {
                                                 return (<option key={"data-format-" + node.type} defaultValue={node.type}>{node.type}</option>)
                                             })}
                                         </select>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td>Nombre Export:</td>
+                                    <td>
+                                        <input 
+                                            ref={el => this.exportNameInput = el} 
+                                            type="text" 
+                                            className="border-color-gray"
+                                            placeholder="Nombre del sprite"
+                                            style={{width: '100px'}}
+                                        />
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td>Nombre ZIP:</td>
+                                    <td>
+                                        <input 
+                                            ref={el => this.zipNameInput = el} 
+                                            type="text" 
+                                            className="border-color-gray"
+                                            placeholder="Nombre del ZIP"
+                                            style={{width: '100px'}}
+                                        />
                                     </td>
                                 </tr>
                                 <tr>
