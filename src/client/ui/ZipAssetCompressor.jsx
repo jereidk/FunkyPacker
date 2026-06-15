@@ -256,7 +256,7 @@ class ZipAssetCompressor extends React.Component {
                         file: fileName,
                         type: fileType,
                         originalSize,
-                        compressedSize,
+                        compressedSize: processedSize,
                         reduction: parseFloat(reduction),
                         success: true
                     });
@@ -266,7 +266,7 @@ class ZipAssetCompressor extends React.Component {
                         file: fileName,
                         type: fileType,
                         originalSize,
-                        compressedSize,
+                        compressedSize: processedSize,
                         reduction: 0,
                         success: true,
                         unchanged: true
