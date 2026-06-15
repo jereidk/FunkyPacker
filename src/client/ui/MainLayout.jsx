@@ -13,6 +13,7 @@ import EditCustomExporter from './EditCustomExporter.jsx';
 import SheetSplitter from './SheetSplitter.jsx';
 import MusicPlayer from './MusicPlayer.jsx';
 import ASTCConverter from './ASTCConverter.jsx';
+import ZipAssetCompressor from './ZipAssetCompressor.jsx';
 
 import {Observer, GLOBAL_EVENT} from '../Observer';
 
@@ -120,6 +121,7 @@ class MainLayout extends React.Component {
                     {this.state.messageBox}
                     <MusicPlayer/>
                     <ASTCConverter/>
+                    <ZipAssetCompressor/>
                 </div>
             </div>
         );

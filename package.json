@@ -137,8 +137,10 @@
     "@capacitor/splash-screen": "^8.0.1",
     "@capacitor/status-bar": "^8.0.2",
     "@gpu-tex-enc/astc": "^4.7.1",
+    "browser-image-compression": "^2.0.2",
     "buffer": "^6.0.3",
     "core-js": "^3.49.0",
+    "pako": "^2.1.0",
     "stream": "^0.0.2",
     "timers-browserify": "^2.0.12",
     "xml2js": "^0.4.23"
