@@ -220,15 +220,45 @@ class APP {
                         content: betterTAOutput.atlas.content
                     });
                     
-                    // If we have a preserved Animation.json, export it unchanged
+                    // If we have a preserved Animation.json, validate and export
                     let animLinker = getAnimationLinker();
                     if (animLinker.isLoaded()) {
+                        // Get all sprite names from the packed result
+                        let spriteNames = item.data.map(d => d.name || d.originalFile || '');
+                        
+                        // Validate sprite existence in animation
+                        let validation = animLinker.validateExistence(spriteNames);
+                        
+                        if (validation.total > 0) {
+                            // Build warning message
+                            let warnings = [];
+                            if (validation.sprites.length > 0) {
+                                warnings.push(validation.sprites.length + ' sprites');
+                            }
+                            if (validation.symbols.length > 0) {
+                                warnings.push(validation.symbols.length + ' symbols');
+                            }
+                            
+                            let warnMsg = 'Warning: Animation references may be broken:\n' +
+                                '- ' + warnings.join(', ') + ' not found in atlas\n' +
+                                '- Animation may not play correctly\n' +
+                                '- Consider keeping original sprite names';
+                            
+                            Observer.emit(GLOBAL_EVENT.SHOW_MESSAGE, warnMsg);
+                            console.warn('BetterTA: Orphaned references detected:', validation);
+                        }
+                        
+                        // Log reference stats
+                        let refSprites = animLinker.getReferencedSprites();
+                        let refSymbols = animLinker.getReferencedSymbols();
+                        console.log('BetterTA: Animation.json preserved', 
+                            '(sprites:', refSprites.length, 
+                            '| symbols:', refSymbols.length + ')');
+                        
                         files.push({
                             name: betterTAOutput.animation.name,
                             content: animLinker.toJSON()
                         });
-                        console.log('BetterTA: Animation.json preserved unchanged (sprites: ' + 
-                            animLinker.getReferencedSprites().length + ')');
                     }
                 } else {
                     // Standard exporter
