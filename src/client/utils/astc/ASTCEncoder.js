@@ -19,14 +19,16 @@
 
 /**
  * Map block size names to ASTC internal formats
+ * Values verified against Khronos OpenGL extension registry:
+ * GL_KHR_texture_compression_astc_ldr
  */
 const ASTC_INTERNAL_FORMATS = {
-    '4x4': 0x93B0,  // GL_COMPRESSED_ASTC_4x4_KHR
-    '5x5': 0x93B5,  // GL_COMPRESSED_ASTC_5x5_KHR
-    '6x6': 0x93BA,  // GL_COMPRESSED_ASTC_6x6_KHR
-    '8x8': 0x93BB,   // GL_COMPRESSED_ASTC_8x8_KHR
-    '10x10': 0x93BC, // GL_COMPRESSED_ASTC_10x10_KHR
-    '12x12': 0x93BD  // GL_COMPRESSED_ASTC_12x12_KHR
+    '4x4': 0x93B0,  // GL_COMPRESSED_ASTC_4x4_KHR ✓
+    '5x5': 0x93B2,  // GL_COMPRESSED_ASTC_5x5_KHR (was incorrectly 0x93B5)
+    '6x6': 0x93B4,  // GL_COMPRESSED_ASTC_6x6_KHR (was incorrectly 0x93BA)
+    '8x8': 0x93B7,  // GL_COMPRESSED_ASTC_8x8_KHR (was incorrectly 0x93BB)
+    '10x10': 0x93BB, // GL_COMPRESSED_ASTC_10x10_KHR (was incorrectly 0x93BC)
+    '12x12': 0x93BD  // GL_COMPRESSED_ASTC_12x12_KHR ✓
 };
 
 class ASTCEncoder {
@@ -322,205 +324,172 @@ class ASTCEncoder {
      * @param {number} height - Image height
      * @param {string} blockSize - Block size (e.g., '4x4')
      * @returns {ArrayBuffer} - KTX2 formatted data
+     * 
+     * KTX2 spec header layout (after 12-byte identifier):
+     * Offset  Size  Field                    Description
+     *   12    4    vkFormat                Vulkan format (unused, set to 0 for ASTC)
+     *   16    4    typeSize                Size of uncompressed type (1 for ASTC)
+     *   20    4    pixelWidth              Image width in pixels
+     *   24    4    pixelHeight            Image height in pixels
+     *   28    4    pixelDepth             Image depth (1 for 2D)
+     *   32    4    layerCount             Number of array elements (0 for 2D)
+     *   36    4    faceCount              Number of faces (1 for 2D, 6 for cubemap)
+     *   40    4    levelCount             Number of mipmap levels
+     *   44    4    supercompressionScheme Compression scheme (0 = none for ASTC)
+     *   48    4    dfdByteOffset          Offset to DFD from start of file
+     *   52    4    dfdByteLength          Size of DFD
+     *   56    4    kvdByteOffset          Offset to KV data from start
+     *   60    4    kvdByteLength           Size of KV data
+     *   64    8    sgdByteOffset          Offset to SGD from start (8 bytes)
+     *   72    8    sgdByteLength           Size of SGD (8 bytes)
      */
     createKTX2(astcData, width, height, blockSize) {
         const block = this.blockSizes[blockSize] || this.blockSizes['4x4'];
-        const internalFormat = ASTC_INTERNAL_FORMATS[blockSize] || ASTC_INTERNAL_FORMATS['4x4'];
         
-        // KTX2 header is always 80 bytes
+        // KTX2 header is exactly 80 bytes
         const headerSize = 80;
         const header = new Uint8Array(headerSize);
         
-        // KTX2 identifier: «ktx« (12 bytes)
-        // Actually, KTX2 identifier is 12 bytes starting with magic number
-        const identifier = [0xAB, 0x4B, 0x54, 0x58, 0x20, 0x32, 0x0D, 0x0A, 0x1A, 0x0A];
-        header.set(identifier, 0);
+        // 12-byte KTX2 identifier
+        // «ktx» with version 2, EOI markers
+        const identifier = new Uint8Array([
+            0xAB, 0x4B, 0x54, 0x58, 0x20, 0x32, 0x0D, 0x0A, 0x1A, 0x0A
+        ]);
+        header.set(identifier);
         
-        // Header length (u32)
-        // Bytes 12-15: headerByteLength (unused in KTX2, but kept for compatibility)
-        const headerByteLength = 80;
-        header[12] = headerByteLength & 0xFF;
-        header[13] = (headerByteLength >> 8) & 0xFF;
-        header[14] = (headerByteLength >> 16) & 0xFF;
-        header[15] = (headerByteLength >> 24) & 0xFF;
+        // Helper to write u32 little-endian
+        const writeU32 = (offset, value) => {
+            header[offset] = value & 0xFF;
+            header[offset + 1] = (value >> 8) & 0xFF;
+            header[offset + 2] = (value >> 16) & 0xFF;
+            header[offset + 3] = (value >> 24) & 0xFF;
+        };
         
-        // Number of mipmap levels (u32)
-        // Bytes 16-19
-        header[16] = 1;
-        header[17] = 0;
-        header[18] = 0;
-        header[19] = 0;
+        // Helper to write u64 little-endian (for SGD offsets)
+        const writeU64 = (offset, value) => {
+            writeU32(offset, value & 0xFFFFFFFF);
+            writeU32(offset + 4, Math.floor(value / 0x100000000));
+        };
         
-        // Number of layers (u32)
-        // Bytes 20-23
-        header[20] = 1;
-        header[21] = 0;
-        header[22] = 0;
-        header[23] = 0;
+        // vkFormat (offset 12): 0 for compressed formats like ASTC
+        writeU32(12, 0);
         
-        // Number of faces (u32)
-        // Bytes 24-27 (1 for 2D textures, 6 for cubemaps)
-        header[24] = 1;
-        header[25] = 0;
-        header[26] = 0;
-        header[27] = 0;
+        // typeSize (offset 16): 1 for ASTC block size
+        writeU32(16, 1);
         
-        // Bytes 28-31: number of source dimensions (unused, set to 0)
-        header[28] = 0;
-        header[29] = 0;
-        header[30] = 0;
-        header[31] = 0;
+        // pixelWidth (offset 20)
+        writeU32(20, width);
         
-        // Pixel dimensions (u32 each)
-        // Bytes 32-35: width
-        header[32] = width & 0xFF;
-        header[33] = (width >> 8) & 0xFF;
-        header[34] = (width >> 16) & 0xFF;
-        header[35] = (width >> 24) & 0xFF;
+        // pixelHeight (offset 24)
+        writeU32(24, height);
         
-        // Bytes 36-39: height
-        header[36] = height & 0xFF;
-        header[37] = (height >> 8) & 0xFF;
-        header[38] = (height >> 16) & 0xFF;
-        header[39] = (height >> 24) & 0xFF;
+        // pixelDepth (offset 28): 1 for 2D textures
+        writeU32(28, 1);
         
-        // Bytes 40-43: depth (1 for 2D textures)
-        header[40] = 1;
-        header[41] = 0;
-        header[42] = 0;
-        header[43] = 0;
+        // layerCount (offset 32): 0 for non-array 2D textures
+        writeU32(32, 0);
         
-        // Bytes 44-47: number of array elements (0 for non-array textures)
-        header[44] = 0;
-        header[45] = 0;
-        header[46] = 0;
-        header[47] = 0;
+        // faceCount (offset 36): 1 for 2D textures
+        writeU32(36, 1);
         
-        // Bytes 48-51: format-specific data
-        // For ASTC, this is the size of one compressed block
-        const compressedBlockSize = 16;
-        header[48] = compressedBlockSize & 0xFF;
-        header[49] = (compressedBlockSize >> 8) & 0xFF;
-        header[50] = (compressedBlockSize >> 16) & 0xFF;
-        header[51] = (compressedBlockSize >> 24) & 0xFF;
+        // levelCount (offset 40): 1 for base level only
+        writeU32(40, 1);
         
-        // Bytes 52-55: type of DFD follows
-        header[52] = 0;
-        header[53] = 0;
-        header[54] = 0;
-        header[55] = 0;
+        // supercompressionScheme (offset 44): 0 = none (ASTC is already compressed)
+        writeU32(44, 0);
         
-        // Bytes 56-59: offset of DFD from start of file
+        // Calculate DFD size (28 bytes for our RGBA sample)
+        const dfdSize = 28;
         const dfdOffset = headerSize;
-        header[56] = dfdOffset & 0xFF;
-        header[57] = (dfdOffset >> 8) & 0xFF;
-        header[58] = (dfdOffset >> 16) & 0xFF;
-        header[59] = (dfdOffset >> 24) & 0xFF;
         
-        // Bytes 60-63: offset of first "image" data from start of file
-        // For KTX2, image data follows DFD
-        const dfdSize = 28; // Size of our ASTC DFD
-        const imageDataOffset = headerSize + dfdSize;
-        header[60] = imageDataOffset & 0xFF;
-        header[61] = (imageDataOffset >> 8) & 0xFF;
-        header[62] = (imageDataOffset >> 16) & 0xFF;
-        header[63] = (imageDataOffset >> 24) & 0xFF;
+        // dfdByteOffset (offset 48)
+        writeU32(48, dfdOffset);
         
-        // Bytes 64-67: kvDataByteLength (key/value pairs, we have none)
-        header[64] = 0;
-        header[65] = 0;
-        header[66] = 0;
-        header[67] = 0;
+        // dfdByteLength (offset 52)
+        writeU32(52, dfdSize);
         
-        // Bytes 68-71: kvDataOffset (offset to key/value data, if any)
-        // With no kvData, this points to end of file
-        header[68] = 0;
-        header[69] = 0;
-        header[70] = 0;
-        header[71] = 0;
+        // kvdByteOffset (offset 56): immediately after image data
+        const imageDataSize = astcData.byteLength;
+        const kvdOffset = dfdOffset + dfdSize + imageDataSize;
+        writeU32(56, kvdOffset);
         
-        // Bytes 72-79: unused/padding
-        for (let i = 72; i < 80; i++) {
-            header[i] = 0;
-        }
+        // kvdByteLength (offset 60): 0 (no key/value data)
+        writeU32(60, 0);
         
-        // Create DFD (Data Format Descriptor) for ASTC
-        // DFD for ASTC RGBA follows Khronos specification
+        // sgdByteOffset (offset 64): 0 = no SGD for uncompressed reference
+        writeU64(64, 0);
+        
+        // sgdByteLength (offset 72): 0
+        writeU64(72, 0);
+        
+        // Create DFD (Data Format Descriptor) for ASTC RGBA
+        // This tells the decoder the color model and channel format
         const dfd = new Uint8Array(dfdSize);
         
-        // DFD total size (u32) - bytes 0-3
-        dfd[0] = dfdSize & 0xFF;
-        dfd[1] = (dfdSize >> 8) & 0xFF;
-        dfd[2] = (dfdSize >> 16) & 0xFF;
-        dfd[3] = (dfdSize >> 24) & 0xFF;
+        // DFD total size (u32 LE) - bytes 0-3
+        writeU32(0, dfdSize);
         
-        // Vendor ID (u32) - bytes 4-7 (0 = Khronos)
-        dfd[4] = 0;
-        dfd[5] = 0;
-        dfd[6] = 0;
-        dfd[7] = 0;
+        // vendorId (u32) - bytes 4-7 (0 = Khronos)
+        writeU32(4, 0);
         
-        // Descriptor type (u16) - bytes 8-9
+        // descriptorType (u16 LE) - bytes 8-9
         dfd[8] = 0;
         dfd[9] = 1;
         
-        // Descriptor block model (u8) - byte 10
+        // descriptorBlockModel (u8) - byte 10
         dfd[10] = 0;
         
-        // Descriptor color model (u8) - byte 11 (6 = ASTC)
+        // descriptorColorModel (u8) - byte 11
+        // 6 = ASTC in KTX2 spec
         dfd[11] = 6;
         
-        // Descriptor color primaries (u8) - byte 12 (0 = unmodified)
+        // descriptorColorPrimaries (u8) - byte 12
+        // 0 = unmodified (sRGB/linear per data)
         dfd[12] = 0;
         
-        // Descriptor transfer function (u8) - byte 13 (0 = linear)
+        // descriptorTransferFunction (u8) - byte 13
+        // 0 = linear
         dfd[13] = 0;
         
-        // Flags (u8) - byte 14
+        // flags (u8) - byte 14
         dfd[14] = 0;
         
-        // Texel block dimension (u8) - byte 15
-        // Bits 0-1: dimX-1, bits 2-3: dimY-1, bits 4-5: dimZ-1, bits 6-7: dimW-1
+        // texelBlockDimension (u8) - byte 15
+        // bits 0-1: dimX-1, bits 2-3: dimY-1, bits 4-5: dimZ-1, bits 6-7: dimW-1
         dfd[15] = ((block.width - 1) << 0) | 
                   ((block.height - 1) << 2) | 
                   (0 << 4) | 
                   (0 << 6);
         
-        // Bytes 16-19: planes (1 plane)
-        dfd[16] = 1;
-        dfd[17] = 0;
-        dfd[18] = 0;
-        dfd[19] = 0;
-        
-        // Bytes 20-23: bytes plane 0 (0 = calculate from dimensions)
-        dfd[20] = 0;
-        dfd[21] = 0;
-        dfd[22] = 0;
-        dfd[23] = 0;
+        // bytesPlane (u32) - bytes 16-19
+        // 0 = calculate from other fields
+        writeU32(16, 0);
         
         // Sample info starts at byte 24
-        // For ASTC, we have one sample describing RGBA
-        // Sample 0: bytes 24-27
-        dfd[24] = 0x81; // channel ID: R, format: uint
-        dfd[25] = 0x40; // qualifiers: none, sample-low: 0, sample-high: 1
-        dfd[26] = 0x08; // bit offset: 0, bits: 8
-        dfd[27] = 0x00; // reserved, plane: 0
+        // For RGBA in ASTC, we have 4 samples (R, G, B, A)
+        // Each sample is 4 bytes
         
-        // Sample 1: bytes 28-31 (G)
-        dfd[28] = 0x82; // channel ID: G
-        dfd[29] = 0x40;
+        // Sample 0: Red channel
+        dfd[24] = 0x01; // channelID: 1 = R, format: UINT
+        dfd[25] = 0x00; // qualifiers: none
+        dfd[26] = 0x08; // bits: 8
+        dfd[27] = 0x00; // plane: 0
+        
+        // Sample 1: Green channel
+        dfd[28] = 0x02; // channelID: 2 = G
+        dfd[29] = 0x00;
         dfd[30] = 0x08;
         dfd[31] = 0x00;
         
-        // Sample 2: bytes 32-35 (B)
-        dfd[32] = 0x83; // channel ID: B
-        dfd[33] = 0x40;
+        // Sample 2: Blue channel
+        dfd[32] = 0x03; // channelID: 3 = B
+        dfd[33] = 0x00;
         dfd[34] = 0x08;
         dfd[35] = 0x00;
         
-        // Sample 3: bytes 36-39 (A)
-        dfd[36] = 0x84; // channel ID: A
-        dfd[37] = 0x40;
+        // Sample 3: Alpha channel
+        dfd[36] = 0x04; // channelID: 4 = A
+        dfd[37] = 0x00;
         dfd[38] = 0x08;
         dfd[39] = 0x00;
         

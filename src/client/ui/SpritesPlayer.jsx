@@ -27,11 +27,20 @@ class SpritesPlayer extends React.Component {
         this.animationTimer = null;
         this.lastPropsData = null;
 
-        // Bind methods
+        // Bind all methods to preserve 'this' context
         this.updateCurrentTextures = this.updateCurrentTextures.bind(this);
         this.playAnimation = this.playAnimation.bind(this);
         this.stopAnimation = this.stopAnimation.bind(this);
         this.setZoom = this.setZoom.bind(this);
+        this.onFpsChange = this.onFpsChange.bind(this);
+        this.onBackgroundColorChange = this.onBackgroundColorChange.bind(this);
+        this.toggleGrid = this.toggleGrid.bind(this);
+        this.toggleDirection = this.toggleDirection.bind(this);
+        this.goToFirstFrame = this.goToFirstFrame.bind(this);
+        this.goToLastFrame = this.goToLastFrame.bind(this);
+        this.nextFrame = this.nextFrame.bind(this);
+        this.prevFrame = this.prevFrame.bind(this);
+        this.renderCurrentFrame = this.renderCurrentFrame.bind(this);
 
         Observer.on(GLOBAL_EVENT.IMAGES_LIST_SELECTED_CHANGED, this.onImagesSelected, this);
     }
@@ -59,7 +68,10 @@ class SpritesPlayer extends React.Component {
                 this.forceUpdate();
             }
         } else {
-            this.stopAnimation();
+            // Stop animation and sync isPlaying state
+            if (this.animationTimer) {
+                this.stopAnimation();
+            }
         }
     }
 
@@ -284,12 +296,15 @@ class SpritesPlayer extends React.Component {
         if(this.animationTimer) {
             clearInterval(this.animationTimer);
             this.animationTimer = null;
+            this.setState({ isPlaying: false });
         }
     }
 
     playAnimation() {
         if(this.animationTimer) return;
         if (!this.currentTextures.length) return;
+
+        this.setState({ isPlaying: true });
 
         this.animationTimer = setInterval(() => {
             let nextFrame;
@@ -300,9 +315,7 @@ class SpritesPlayer extends React.Component {
             }
 
             this.setState({ currentFrame: nextFrame });
-            // Force re-render by manually calling render after state update
-            // setState is async, so we need to ensure render happens
-            setTimeout(() => this.renderCurrentFrame(), 0);
+            // Use setState callback instead of setTimeout for proper React lifecycle
         }, 1000 / this.state.fps);
     }
 

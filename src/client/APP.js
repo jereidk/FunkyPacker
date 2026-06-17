@@ -191,9 +191,17 @@ class APP {
                 });
             }
 
-            //TODO: move to options
-            let pixelFormat = this.packOptions.textureFormat === "png" ? "RGBA8888" :
-                              this.packOptions.textureFormat === "astc" ? "ASTC_4x4" : "RGB888";
+            // Determine pixel format based on texture format and block size
+            let pixelFormat;
+            if (this.packOptions.textureFormat === "png") {
+                pixelFormat = "RGBA8888";
+            } else if (this.packOptions.textureFormat === "astc") {
+                // Use actual block size from ASTC options, default to 4x4
+                const blockSize = this.packOptions.astcBlockSize || '4x4';
+                pixelFormat = `ASTC_${blockSize}`;
+            } else {
+                pixelFormat = "RGB888";
+            }
 
             let options = {
                 imageName: `${fName}`,

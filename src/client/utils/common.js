@@ -29,21 +29,17 @@ function smartSortImages(f1, f2) {
 }
 
 function cleanPrefix(str) {
+    // Remove file extension if present
     let parts = str.split(".");
     if(parts.length > 1) parts.pop();
     str = parts.join(".");
 
-    var lastDigit = "";
-    var c = "";
-    do {
-        c = str[str.length-1];
-        if(c >= '0' && c <= '9') {
-            str = str.slice(0, str.length - 1);
-            lastDigit = c;
-        }
-    } while(c >= '0' && c <= '9');
-
-    return str + lastDigit;
+    // Strip ALL trailing digits - this groups all frames of an animation together
+    // Examples:
+    //   "walk0" .. "walk9" -> all become "walk"
+    //   "walk00" .. "walk99" -> all become "walk"
+    //   "idle_0" .. "idle_99" -> all become "idle_"
+    return str.replace(/[0-9]+$/, '');
 }
 
 function removeFromArray(arr, item) {
