@@ -142,11 +142,8 @@ class AnimationTreeView extends React.Component {
         let { symbols } = info.symbolDict;
         let isExpanded = this.state.expanded.symbols;
         
-        // Count usages of each symbol
-        let symbolUsages = new Map();
-        for (let symName of info.refSymbols) {
-            symbolUsages.set(symName, (symbolUsages.get(symName) || 0) + 1);
-        }
+        // Track which symbols are used (refSymbols contains unique names)
+        let usedSymbols = new Set(info.refSymbols);
         
         return (
             <div className="anim-tree-section">
@@ -159,13 +156,12 @@ class AnimationTreeView extends React.Component {
                 {isExpanded && (
                     <div className="anim-tree-content">
                         {symbols.slice(0, 30).map((sym, i) => {
-                            let usages = symbolUsages.get(sym.SN) || 0;
-                            let isUsed = usages > 0;
+                            let isUsed = usedSymbols.has(sym.SN);
                             return (
                                 <div key={i} className={`anim-tree-symbol ${!isUsed ? 'unused' : ''}`}>
                                     <span className="anim-tree-symbol-name">• {sym.SN}</span>
                                     <span className={`anim-tree-symbol-usage ${isUsed ? 'used' : 'unused'}`}>
-                                        {usages > 0 ? `✓ ${usages}x` : '⚠ unused'}
+                                        {isUsed ? '✓ used' : '⚠ unused'}
                                     </span>
                                 </div>
                             );

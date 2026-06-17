@@ -12,6 +12,7 @@ import ImagesList from "./ImagesList.jsx";
 import { cleanPrefix } from '../utils/common';
 import sparrowStore from '../store/sparrowStore';
 import { getAnimationLinker } from '../utils/AnimationLinker';
+import animationOptionsStore from '../store/animationOptionsStore';
 import AnimationTreeView from './AnimationTreeView.jsx';
 
 class SheetSplitter extends React.Component {
@@ -403,10 +404,7 @@ class SheetSplitter extends React.Component {
     }
 
     onGenerateAnimationChanged(e) {
-        // Import dynamically to avoid circular dependency
-        import('../store/animationOptionsStore').then(module => {
-            module.setGenerateAnimation(e.target.checked);
-        });
+        animationOptionsStore.setGenerateAnimation(e.target.checked);
     }
 
     updateFrames() {
