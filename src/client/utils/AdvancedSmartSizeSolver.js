@@ -500,7 +500,7 @@ class AdvancedSmartSizeSolver {
         const initialWidth = Math.max(maxSpriteWidth, Math.ceil(Math.sqrt(totalArea)));
 
         // Generate candidate widths to try
-        const widths = this.generateCandidateWidths(initialWidth, maxSpriteWidth, totalArea, maxSizeLimit);
+        const widths = this.generateCandidateWidths(initialWidth, maxSpriteWidth, maxSpriteHeight, totalArea, maxSizeLimit);
 
         let bestOverall = null;
 
@@ -553,7 +553,7 @@ class AdvancedSmartSizeSolver {
         };
     }
 
-    static generateCandidateWidths(initialWidth, maxSpriteWidth, totalArea, maxSizeLimit) {
+    static generateCandidateWidths(initialWidth, maxSpriteWidth, maxSpriteHeight, totalArea, maxSizeLimit) {
         const widths = new Set();
         
         // Add some strategic widths
@@ -592,21 +592,36 @@ class AdvancedSmartSizeSolver {
         const paddedHeight = maxSizeLimit - borderPadding * 2;
 
         let packer;
-        let method;
+        let method = 'BESTSHORTSIDEFIT';
 
         switch (algorithm) {
             case AdvancedSmartSizeSolver.ALGORITHM.MAXRECTS_BSSF:
+                packer = new MaxRectsPacker(paddedWidth, paddedHeight, padding);
+                method = 'BESTSHORTSIDEFIT';
+                break;
             case AdvancedSmartSizeSolver.ALGORITHM.MAXRECTS_BLSF:
+                packer = new MaxRectsPacker(paddedWidth, paddedHeight, padding);
+                method = 'BESTLONGSIDEFIT';
+                break;
             case AdvancedSmartSizeSolver.ALGORITHM.MAXRECTS_BAF:
+                packer = new MaxRectsPacker(paddedWidth, paddedHeight, padding);
+                method = 'BESTAREAFIT';
+                break;
             case AdvancedSmartSizeSolver.ALGORITHM.MAXRECTS_BLR:
+                packer = new MaxRectsPacker(paddedWidth, paddedHeight, padding);
+                method = 'BOTTOMLEFT rule';
+                break;
             case AdvancedSmartSizeSolver.ALGORITHM.MAXRECTS_CP:
                 packer = new MaxRectsPacker(paddedWidth, paddedHeight, padding);
-                method = algorithm.replace('maxrects_', '').toUpperCase();
+                method = 'CONTACTPOINT';
                 break;
             case AdvancedSmartSizeSolver.ALGORITHM.GUILLOTINE_BSSF:
+                packer = new GuillotinePacker(paddedWidth, paddedHeight, padding);
+                packer.splitMethod = 'BestShortSideFit';
+                break;
             case AdvancedSmartSizeSolver.ALGORITHM.GUILLOTINE_BAF:
                 packer = new GuillotinePacker(paddedWidth, paddedHeight, padding);
-                packer.splitMethod = algorithm === AdvancedSmartSizeSolver.ALGORITHM.GUILLOTINE_BSSF ? 'BestShortSideFit' : 'BestAreaFit';
+                packer.splitMethod = 'BestAreaFit';
                 break;
             case AdvancedSmartSizeSolver.ALGORITHM.SHELF:
                 packer = new ShelfPacker(paddedWidth, paddedHeight, padding);
@@ -623,7 +638,10 @@ class AdvancedSmartSizeSolver {
         let maxY = 0;
 
         for (const sprite of sprites) {
-            const rect = packer.insert(sprite.w, sprite.h);
+            // Pass method to MaxRectsPacker insert
+            const rect = (packer instanceof MaxRectsPacker) 
+                ? packer.insert(sprite.w, sprite.h, method)
+                : packer.insert(sprite.w, sprite.h);
             if (!rect) {
                 return { success: false };
             }
