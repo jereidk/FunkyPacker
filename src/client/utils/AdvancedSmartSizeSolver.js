@@ -200,34 +200,91 @@ class GuillotinePacker {
 
         this.freeRects.splice(bestIndex, 1);
 
-        // Split the free rect
+        // Split the free rect to create new free rects
         const splitW = bestRect.w - paddedW;
         const splitH = bestRect.h - paddedH;
 
         if (splitW > 0 && splitH > 0) {
-            // Split both directions
+            // Split in both directions - creates two new free rects
             if (this.splitMethod === 'BestShortSideFit') {
+                // Prefer splitting along the shorter remaining side
                 if (splitW < splitH) {
-                    this.freeRects.push({ x: bestRect.x + paddedW, y: bestRect.y, w: splitW, h: bestRect.h });
-                    this.freeRects.push({ x: bestRect.x, y: bestRect.y + paddedH, w: paddedW, h: splitH });
+                    // Split vertically first: right rect (splitW wide), bottom rect (full width)
+                    this.freeRects.push({ 
+                        x: bestRect.x + paddedW, 
+                        y: bestRect.y, 
+                        w: splitW, 
+                        h: bestRect.h 
+                    });
+                    this.freeRects.push({ 
+                        x: bestRect.x, 
+                        y: bestRect.y + paddedH, 
+                        w: bestRect.w,  // Full width for bottom rect
+                        h: splitH 
+                    });
                 } else {
-                    this.freeRects.push({ x: bestRect.x, y: bestRect.y + paddedH, w: bestRect.w, h: splitH });
-                    this.freeRects.push({ x: bestRect.x + paddedW, y: bestRect.y, w: splitW, h: paddedH });
+                    // Split horizontally first: bottom rect (splitH tall), right rect (full height)
+                    this.freeRects.push({ 
+                        x: bestRect.x, 
+                        y: bestRect.y + paddedH, 
+                        w: bestRect.w, 
+                        h: splitH 
+                    });
+                    this.freeRects.push({ 
+                        x: bestRect.x + paddedW, 
+                        y: bestRect.y, 
+                        w: splitW, 
+                        h: paddedH  // Use paddedH (sprite height) for right rect
+                    });
                 }
             } else {
-                // MaxArea split
+                // BestAreaFit: prefer split that leaves larger usable area
                 if (splitW * bestRect.h > splitH * bestRect.w) {
-                    this.freeRects.push({ x: bestRect.x + paddedW, y: bestRect.y, w: splitW, h: bestRect.h });
-                    this.freeRects.push({ x: bestRect.x, y: bestRect.y + paddedH, w: paddedW, h: splitH });
+                    // Split vertically: right rect
+                    this.freeRects.push({ 
+                        x: bestRect.x + paddedW, 
+                        y: bestRect.y, 
+                        w: splitW, 
+                        h: bestRect.h 
+                    });
+                    this.freeRects.push({ 
+                        x: bestRect.x, 
+                        y: bestRect.y + paddedH, 
+                        w: bestRect.w, 
+                        h: splitH 
+                    });
                 } else {
-                    this.freeRects.push({ x: bestRect.x, y: bestRect.y + paddedH, w: bestRect.w, h: splitH });
-                    this.freeRects.push({ x: bestRect.x + paddedW, y: bestRect.y, w: splitW, h: paddedH });
+                    // Split horizontally: bottom rect
+                    this.freeRects.push({ 
+                        x: bestRect.x, 
+                        y: bestRect.y + paddedH, 
+                        w: bestRect.w, 
+                        h: splitH 
+                    });
+                    this.freeRects.push({ 
+                        x: bestRect.x + paddedW, 
+                        y: bestRect.y, 
+                        w: splitW, 
+                        h: paddedH 
+                    });
                 }
             }
         } else if (splitW > 0) {
-            this.freeRects.push({ x: bestRect.x + paddedW, y: bestRect.y, w: splitW, h: bestRect.h });
+            // Only horizontal split possible (vertical space exhausted)
+            this.freeRects.push({ 
+                x: bestRect.x + paddedW, 
+                y: bestRect.y, 
+                w: splitW, 
+                h: bestRect.h 
+            });
         } else if (splitH > 0) {
-            this.freeRects.push({ x: bestRect.x, y: bestRect.y + paddedH, w: bestRect.w, h: splitH });
+            // Only vertical split possible (horizontal space exhausted)
+            this.freeRects.push({ 
+                x: bestRect.x, 
+                y: bestRect.y + paddedH, 
+                w: bestRect.w, 
+                h: splitH 
+            });
         }
 
         const placed = { x: bestRect.x + this.padding, y: bestRect.y + this.padding, w: width, h: height, padded: true };
@@ -369,15 +426,15 @@ class SkylinePacker {
         const newNode = { x: bestX, y: bestY + paddedH, w: paddedW };
         this.skyline.splice(bestIndex, 0, newNode);
 
-        // Merge skyline levels
+        // Merge adjacent skyline levels that have the same height
+        // This consolidates the skyline and prevents fragmentation
         for (let i = 0; i < this.skyline.length - 1; i++) {
-            if (this.skyline[i].y === this.skyline[i + 1].y) {
-                this.skyline[i].w += this.skyline[i + 1].w;
-                this.skyline.splice(i + 1, 1);
-                i--;
-            } else if (this.skyline[i].x >= this.skyline[i + 1].x && 
-                       this.skyline[i].x < this.skyline[i + 1].x + this.skyline[i + 1].w) {
-                this.skyline[i].w = Math.max(this.skyline[i].w, this.skyline[i + 1].x + this.skyline[i + 1].w - this.skyline[i].x);
+            const current = this.skyline[i];
+            const next = this.skyline[i + 1];
+            
+            // If adjacent nodes have the same y, they can be merged
+            if (current.y === next.y) {
+                current.w += next.w;
                 this.skyline.splice(i + 1, 1);
                 i--;
             }
@@ -429,7 +486,17 @@ class SkylinePacker {
 
     getHeight() {
         if (this.skyline.length === 0) return 0;
-        return Math.max(...this.skyline.map(s => s.y));
+        // Find the maximum y position in the skyline
+        // This represents the highest occupied space in the bin
+        let maxY = 0;
+        for (const node of this.skyline) {
+            // Each node's y represents the top of placed rectangles at that x position
+            // The height of the bin used is the max y value
+            if (node.y > maxY) {
+                maxY = node.y;
+            }
+        }
+        return maxY;
     }
 }
 

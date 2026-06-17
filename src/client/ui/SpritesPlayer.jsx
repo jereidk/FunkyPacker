@@ -21,7 +21,6 @@ class SpritesPlayer extends React.Component {
 
         this.textures = [];
         this.currentTextures = [];
-        this.currentFrame = 0;
         this.width = 0;
         this.height = 0;
         this.updateTimer = null;
@@ -120,26 +119,24 @@ class SpritesPlayer extends React.Component {
         });
 
         this.currentTextures = textures;
-        this.currentFrame = 0;
+        this.setState({ currentFrame: 0 });
         this.update(true);
     }
 
     update(skipFrameUpdate) {
         clearTimeout(this.updateTimer);
 
-        if(!skipFrameUpdate){
+        if (!skipFrameUpdate) {
+            let nextFrame;
+            const currentFrame = this.state.currentFrame;
             if (this.state.playbackDirection === 'forward') {
-                this.currentFrame++;
-                if(this.currentFrame >= this.currentTextures.length) {
-                    this.currentFrame = 0;
-                }
+                nextFrame = (currentFrame + 1) % this.currentTextures.length;
             } else {
-                this.currentFrame--;
-                if(this.currentFrame < 0) {
-                    this.currentFrame = this.currentTextures.length - 1;
-                }
+                nextFrame = (currentFrame - 1 + this.currentTextures.length) % this.currentTextures.length;
             }
+            this.setState({ currentFrame: nextFrame });
         }
+
         this.renderTexture();
 
         this.updateTimer = setTimeout(this.update, 1000 / this.state.fps);
@@ -157,7 +154,8 @@ class SpritesPlayer extends React.Component {
             this.drawGrid(ctx);
         }
 
-        let texture = this.currentTextures[this.currentFrame];
+        const currentFrame = this.state.currentFrame;
+        let texture = this.currentTextures[currentFrame];
         if(!texture) return;
 
         var w = texture.config.sourceSize.w;
@@ -179,16 +177,26 @@ class SpritesPlayer extends React.Component {
         bufferCtx.clearRect(0, 0, w, h);
 
         if(texture.config.rotated) {
+            // When rotated, frame.w and frame.h are swapped in the atlas
+            // spriteSourceSize still contains original dimensions
             bufferCtx.save();
 
-            bufferCtx.translate(texture.config.spriteSourceSize.x + texture.config.spriteSourceSize.w/2, texture.config.spriteSourceSize.y + texture.config.spriteSourceSize.h/2);
-            bufferCtx.rotate(-Math.PI/2);
+            // Translate to center of original sprite space
+            const centerX = texture.config.spriteSourceSize.x + texture.config.spriteSourceSize.w / 2;
+            const centerY = texture.config.spriteSourceSize.y + texture.config.spriteSourceSize.h / 2;
+            bufferCtx.translate(centerX, centerY);
+            bufferCtx.rotate(-Math.PI / 2);
 
-            bufferCtx.drawImage(texture.baseTexture,
+            // Draw the rotated sprite from atlas to buffer
+            // Source: frame from atlas (width=frame.h, height=frame.w due to rotation)
+            // Dest: center at origin, using original dimensions (swapped)
+            bufferCtx.drawImage(
+                texture.baseTexture,
                 texture.config.frame.x, texture.config.frame.y,
                 texture.config.frame.h, texture.config.frame.w,
-                -texture.config.spriteSourceSize.h/2, -texture.config.spriteSourceSize.w/2,
-                texture.config.spriteSourceSize.h, texture.config.spriteSourceSize.w);
+                -texture.config.spriteSourceSize.h / 2, -texture.config.spriteSourceSize.w / 2,
+                texture.config.spriteSourceSize.h, texture.config.spriteSourceSize.w
+            );
 
             bufferCtx.restore();
         }
@@ -206,7 +214,7 @@ class SpritesPlayer extends React.Component {
         if(this.currentTextures.length > 1) {
             ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
             ctx.font = "bold 12px Arial";
-            ctx.fillText(`${this.currentFrame + 1}/${this.currentTextures.length}`, 5, 15);
+            ctx.fillText(`${currentFrame + 1}/${this.currentTextures.length}`, 5, 15);
         }
     }
 
@@ -297,28 +305,24 @@ class SpritesPlayer extends React.Component {
 
     goToFirstFrame() {
         this.setState({ currentFrame: 0 });
-        this.currentFrame = 0;
         this.renderTexture();
     }
 
     goToLastFrame() {
         const lastFrame = this.currentTextures.length - 1;
         this.setState({ currentFrame: lastFrame });
-        this.currentFrame = lastFrame;
         this.renderTexture();
     }
 
     nextFrame() {
         const next = (this.state.currentFrame + 1) % this.currentTextures.length;
         this.setState({ currentFrame: next });
-        this.currentFrame = next;
         this.renderTexture();
     }
 
     prevFrame() {
         const prev = (this.state.currentFrame - 1 + this.currentTextures.length) % this.currentTextures.length;
         this.setState({ currentFrame: prev });
-        this.currentFrame = prev;
         this.renderTexture();
     }
 
@@ -608,7 +612,6 @@ class SpritesPlayer extends React.Component {
                                     }}
                                     onClick={() => {
                                         this.setState({ currentFrame: i });
-                                        this.currentFrame = i;
                                         this.renderTexture();
                                     }}
                                 >
