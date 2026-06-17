@@ -207,6 +207,15 @@ class APP {
                 trimMode: this.packOptions.trimMode,
 
                 sortExportedRows: this.packOptions.sortExportedRows,
+                
+                // BetterTA Animation Options
+                framerate: this.packOptions.btaFramerate || 24,
+                canvasWidth: this.packOptions.btaCanvasWidth || 1280,
+                canvasHeight: this.packOptions.btaCanvasHeight || 720,
+                backgroundColor: this.packOptions.btaBackgroundColor || "#999999",
+                animationName: this.packOptions.btaAnimationName || "animations",
+                loopAnimation: this.packOptions.btaLoopAnimation !== false,
+                autoGroupFrames: this.packOptions.btaAutoGroupFrames !== false,
             };
 
             try {
