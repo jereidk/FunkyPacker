@@ -403,6 +403,7 @@ function groupFramesByAnimation(rects) {
  * Extract animation prefix from frame name
  * Handles patterns like: walk_001, walk-001, idle0001, etc.
  * Also handles FNF-style names: "animations/down", "animations/idle"
+ * And special FNF patterns: "down_0START", "dead 0START", "MISS 0left", etc.
  */
 function extractAnimationPrefix(frameName) {
     // Remove file extension if present
@@ -410,12 +411,35 @@ function extractAnimationPrefix(frameName) {
     
     // Handle FNF-style paths: "animations/down" -> "animations/down"
     if (name.startsWith("animations/") || name.startsWith("anim/")) {
-        return name;
+        // Extract just the animation name part
+        let animPart = name.replace(/^animations\//, '').replace(/^anim\//, '');
+        
+        // Remove FNF state suffixes:
+        // - "0START", "1MID", "2END"
+        // - "0left", "1down", "2up", "3right"
+        animPart = animPart.replace(/\s*\d+(START|MID|END|LEFT|DOWN|UP|RIGHT)$/i, '');
+        // Remove any remaining numeric suffixes like "_001" or "-001"
+        animPart = animPart.replace(/[_\-]?\d+$/, '');
+        
+        return name.startsWith("animations/") ? "animations/" + animPart : "anim/" + animPart;
+    }
+    
+    // Handle special FNF patterns: "down_0START" -> "down", "left_0MID" -> "left"
+    // Pattern: name_NUMBERSTATE (e.g., down_0START, dead_1MID)
+    let match = name.match(/^(.+?)_\d+(START|MID|END|LEFT|DOWN|UP|RIGHT)$/i);
+    if (match && match[1]) {
+        return match[1];
+    }
+    
+    // Handle patterns with space: "dead 0START" -> "dead", "MISS 0left" -> "MISS"
+    match = name.match(/^([a-zA-Z_]+)\s+\d+(START|MID|END|LEFT|DOWN|UP|RIGHT)$/i);
+    if (match && match[1]) {
+        return match[1];
     }
     
     // Handle names with prefixes: "left_0001" -> "left"
     // Pattern: prefix_number (e.g., walk_001, walk-001)
-    let match = name.match(/^(.+?)[_\-]?\d+$/);
+    match = name.match(/^(.+?)[_\-]?\d+$/);
     if (match && match[1]) {
         return match[1].replace(/[_\-]+$/, '');
     }
