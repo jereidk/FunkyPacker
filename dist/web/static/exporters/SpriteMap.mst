@@ -1,0 +1,27 @@
+{
+  "textures": [
+    {
+      "image": "{{^config.base64Export}}{{config.imageFile}}{{/config.base64Export}}{{#config.base64Export}}data:image/png;base64,...{{/config.base64Export}}",
+      "size": {
+        "w": {{config.imageWidth}},
+        "h": {{config.imageHeight}}
+      }
+    }
+  ],
+  "subtextures": [
+    {{#rects}}
+    {
+      "name": "{{{name}}}",
+      "x": {{frame.x}},
+      "y": {{frame.y}},
+      "width": {{frame.w}},
+      "height": {{frame.h}},
+      "originalWidth": {{sourceSize.w}},
+      "originalHeight": {{sourceSize.h}},
+      "offsetX": {{spriteSourceSize.x}},
+      "offsetY": {{spriteSourceSize.y}},
+      "rotated": {{#rotated}}true{{/rotated}}{{^rotated}}false{{/rotated}}
+    }{{^last}},{{/last}}
+    {{/rects}}
+  ]
+}
