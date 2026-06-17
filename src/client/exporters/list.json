@@ -104,29 +104,14 @@
     "fileExt": "atlas"
   },
   {
-    "type": "TexturePacker (Atlas)",
-    "description": "TexturePacker Atlas format",
+    "type": "BetterTA (Atlas)",
+    "description": "BetterTA Atlas format - Adobe Animate compatible",
     "allowTrim": true,
     "allowRotation": true,
-    "template": "TexturePackerAtlas.mst",
-    "fileExt": "atlas"
-  },
-  {
-    "type": "SpriteMap",
-    "description": "Generic SpriteMap JSON format",
-    "allowTrim": true,
-    "allowRotation": true,
-    "template": "SpriteMap.mst",
+    "template": "BetterTA.mst",
     "fileExt": "json"
   },
-  {
-    "type": "Adobe Animate",
-    "description": "Adobe Animate / Flash CC sprite sheet",
-    "allowTrim": true,
-    "allowRotation": true,
-    "template": "AdobeAnimate.mst",
-    "fileExt": "json"
-  },
+
   {
     "type": "cocos2d",
     "description": "cocos2d format",
