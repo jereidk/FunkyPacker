@@ -23,11 +23,11 @@ class SpritesPlayer extends React.Component {
         this.currentTextures = [];
         this.width = 0;
         this.height = 0;
-        this.updateTimer = null;
         this.selectedImages = [];
         this.animationTimer = null;
+        this.lastPropsData = null;
 
-        this.update = this.update.bind(this);
+        // Bind methods
         this.updateCurrentTextures = this.updateCurrentTextures.bind(this);
         this.playAnimation = this.playAnimation.bind(this);
         this.stopAnimation = this.stopAnimation.bind(this);
@@ -43,12 +43,24 @@ class SpritesPlayer extends React.Component {
 
     componentDidMount() {
         if(this.props.start) this.setup();
-        else this.stop();
+        else this.stopAnimation();
     }
 
-    componentDidUpdate() {
-        if(this.props.start) this.setup();
-        else this.stop();
+    componentDidUpdate(prevProps) {
+        // Only re-run setup if data actually changed (optimization)
+        const dataChanged = prevProps.data !== this.props.data;
+        const startChanged = prevProps.start !== this.props.start;
+
+        if (this.props.start) {
+            if (dataChanged) {
+                this.setup();
+            } else if (startChanged) {
+                // Just starting, but data is the same
+                this.forceUpdate();
+            }
+        } else {
+            this.stopAnimation();
+        }
     }
 
     componentWillUnmount() {
@@ -56,6 +68,8 @@ class SpritesPlayer extends React.Component {
     }
 
     setup() {
+        if (!this.refs.playerContainer) return;
+        
         ReactDOM.findDOMNode(this.refs.playerContainer).className = "player-view-container " + this.props.textureBack;
 
         this.textures = [];
@@ -69,16 +83,29 @@ class SpritesPlayer extends React.Component {
             let baseTexture = part.buffer;
 
             for (let config of part.data) {
-                var w = config.sourceSize.w;
-                var h = config.sourceSize.h;
+                var w = config.sourceSize ? config.sourceSize.w : 0;
+                var h = config.sourceSize ? config.sourceSize.h : 0;
 
                 var prefix = cleanPrefix(config.originalFile || config.file || config.name);
 
-                var maxMap = sparrowStore.getMaxMapEntry(prefix);
-                if (maxMap) {
+                // Safe access to sparrowStore with fallback
+                var maxMap = null;
+                try {
+                    maxMap = sparrowStore && typeof sparrowStore.getMaxMapEntry === 'function' 
+                        ? sparrowStore.getMaxMapEntry(prefix) 
+                        : null;
+                } catch (e) {
+                    console.warn('[SpritesPlayer] Error getting maxMapEntry:', e);
+                }
+                
+                if (maxMap && typeof maxMap.mw === 'number' && typeof maxMap.mh === 'number') {
                     w = maxMap.mw;
                     h = maxMap.mh;
                 }
+
+                // Fallback if dimensions are invalid
+                if (!w || w <= 0) w = config.frame ? config.frame.w : 0;
+                if (!h || h <= 0) h = config.frame ? config.frame.h : 0;
 
                 if (this.width < w) this.width = w;
                 if (this.height < h) this.height = h;
@@ -95,10 +122,42 @@ class SpritesPlayer extends React.Component {
         if(this.height < 200) this.height = 200;
 
         let canvas = ReactDOM.findDOMNode(this.refs.view);
-        canvas.width = this.width;
-        canvas.height = this.height;
+        if (canvas) {
+            canvas.width = this.width;
+            canvas.height = this.height;
+        }
 
+        this.lastPropsData = this.props.data;
         this.updateCurrentTextures();
+    }
+
+    /**
+     * Get sprite dimensions with safe fallbacks
+     */
+    getSpriteDimensions(texture) {
+        var w = texture.config.sourceSize ? texture.config.sourceSize.w : 0;
+        var h = texture.config.sourceSize ? texture.config.sourceSize.h : 0;
+
+        var prefix = cleanPrefix(texture.config.originalFile || texture.config.file || texture.config.name);
+
+        try {
+            var maxMap = sparrowStore && typeof sparrowStore.getMaxMapEntry === 'function' 
+                ? sparrowStore.getMaxMapEntry(prefix) 
+                : null;
+            
+            if (maxMap && typeof maxMap.mw === 'number' && typeof maxMap.mh === 'number') {
+                w = maxMap.mw;
+                h = maxMap.mh;
+            }
+        } catch (e) {
+            console.warn('[SpritesPlayer] Error getting sprite dimensions:', e);
+        }
+
+        // Fallback to frame dimensions if needed
+        if (!w || w <= 0) w = texture.config.frame ? texture.config.frame.w : 256;
+        if (!h || h <= 0) h = texture.config.frame ? texture.config.frame.h : 256;
+
+        return { w, h };
     }
 
     updateCurrentTextures() {
@@ -120,30 +179,18 @@ class SpritesPlayer extends React.Component {
 
         this.currentTextures = textures;
         this.setState({ currentFrame: 0 });
-        this.update(true);
+        this.renderCurrentFrame();
     }
 
-    update(skipFrameUpdate) {
-        clearTimeout(this.updateTimer);
-
-        if (!skipFrameUpdate) {
-            let nextFrame;
-            const currentFrame = this.state.currentFrame;
-            if (this.state.playbackDirection === 'forward') {
-                nextFrame = (currentFrame + 1) % this.currentTextures.length;
-            } else {
-                nextFrame = (currentFrame - 1 + this.currentTextures.length) % this.currentTextures.length;
-            }
-            this.setState({ currentFrame: nextFrame });
-        }
-
-        this.renderTexture();
-
-        this.updateTimer = setTimeout(this.update, 1000 / this.state.fps);
-    }
-
-    renderTexture() {
-        let ctx = ReactDOM.findDOMNode(this.refs.view).getContext("2d");
+    /**
+     * Render the current frame based on state
+     * This is a pure render method - no frame advancement logic
+     */
+    renderCurrentFrame() {
+        const canvas = ReactDOM.findDOMNode(this.refs.view);
+        if (!canvas) return;
+        
+        let ctx = canvas.getContext("2d");
 
         // Clear with background color
         ctx.fillStyle = this.state.backgroundColor;
@@ -158,18 +205,11 @@ class SpritesPlayer extends React.Component {
         let texture = this.currentTextures[currentFrame];
         if(!texture) return;
 
-        var w = texture.config.sourceSize.w;
-        var h = texture.config.sourceSize.h;
-
-        var prefix = cleanPrefix(texture.config.originalFile || texture.config.file || texture.config.name);
-
-        var maxMap = sparrowStore.getMaxMapEntry(prefix);
-        if (maxMap) {
-            w = maxMap.mw;
-            h = maxMap.mh;
-        }
+        const { w, h } = this.getSpriteDimensions(texture);
 
         let buffer = ReactDOM.findDOMNode(this.refs.buffer);
+        if (!buffer) return;
+        
         buffer.width = w;
         buffer.height = h;
 
@@ -240,17 +280,18 @@ class SpritesPlayer extends React.Component {
         }
     }
 
-    stop() {
-        clearTimeout(this.updateTimer);
-        this.updateTimer = null;
+    stopAnimation() {
+        if(this.animationTimer) {
+            clearInterval(this.animationTimer);
+            this.animationTimer = null;
+        }
     }
 
     playAnimation() {
         if(this.animationTimer) return;
+        if (!this.currentTextures.length) return;
 
         this.animationTimer = setInterval(() => {
-            if(!this.currentTextures.length) return;
-
             let nextFrame;
             if (this.state.playbackDirection === 'forward') {
                 nextFrame = (this.state.currentFrame + 1) % this.currentTextures.length;
@@ -259,15 +300,10 @@ class SpritesPlayer extends React.Component {
             }
 
             this.setState({ currentFrame: nextFrame });
-            this.renderTexture();
+            // Force re-render by manually calling render after state update
+            // setState is async, so we need to ensure render happens
+            setTimeout(() => this.renderCurrentFrame(), 0);
         }, 1000 / this.state.fps);
-    }
-
-    stopAnimation() {
-        if(this.animationTimer) {
-            clearInterval(this.animationTimer);
-            this.animationTimer = null;
-        }
     }
 
     setZoom(val) {
@@ -289,12 +325,12 @@ class SpritesPlayer extends React.Component {
     onBackgroundColorChange(e) {
         const color = e.target.value;
         this.setState({ backgroundColor: color });
-        this.renderTexture();
+        this.renderCurrentFrame();
     }
 
     toggleGrid() {
         this.setState(prev => ({ showGrid: !prev.showGrid }));
-        this.renderTexture();
+        this.renderCurrentFrame();
     }
 
     toggleDirection() {
@@ -305,25 +341,25 @@ class SpritesPlayer extends React.Component {
 
     goToFirstFrame() {
         this.setState({ currentFrame: 0 });
-        this.renderTexture();
+        this.renderCurrentFrame();
     }
 
     goToLastFrame() {
         const lastFrame = this.currentTextures.length - 1;
         this.setState({ currentFrame: lastFrame });
-        this.renderTexture();
+        this.renderCurrentFrame();
     }
 
     nextFrame() {
         const next = (this.state.currentFrame + 1) % this.currentTextures.length;
         this.setState({ currentFrame: next });
-        this.renderTexture();
+        this.renderCurrentFrame();
     }
 
     prevFrame() {
         const prev = (this.state.currentFrame - 1 + this.currentTextures.length) % this.currentTextures.length;
         this.setState({ currentFrame: prev });
-        this.renderTexture();
+        this.renderCurrentFrame();
     }
 
     render() {
@@ -612,7 +648,7 @@ class SpritesPlayer extends React.Component {
                                     }}
                                     onClick={() => {
                                         this.setState({ currentFrame: i });
-                                        this.renderTexture();
+                                        this.renderCurrentFrame();
                                     }}
                                 >
                                     {tex.name}
