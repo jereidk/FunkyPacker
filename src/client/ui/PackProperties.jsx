@@ -94,6 +94,7 @@ class PackProperties extends React.Component {
         data.allowTrim = data.allowTrim === undefined ? true : data.allowTrim;
         data.solverMode = data.solverMode || 'manual';
         data.disableMaxLimit = data.disableMaxLimit === undefined ? false : data.disableMaxLimit;
+        data.packingAlgorithm = data.packingAlgorithm || 'best';
         data.trimMode = data.trimMode === undefined ? "trim" : data.trimMode;
         data.alphaThreshold = data.alphaThreshold || 0;
         data.detectIdentical = data.detectIdentical === undefined ? true : data.detectIdentical;
@@ -160,6 +161,7 @@ class PackProperties extends React.Component {
         data.allowTrim = ReactDOM.findDOMNode(this.refs.allowTrim).checked;
         data.solverMode = ReactDOM.findDOMNode(this.refs.solverMode).value;
         data.disableMaxLimit = ReactDOM.findDOMNode(this.refs.disableMaxLimit).checked;
+        data.packingAlgorithm = ReactDOM.findDOMNode(this.refs.packingAlgorithm).value;
         data.trimMode = ReactDOM.findDOMNode(this.refs.trimMode).value;
         data.alphaThreshold = ReactDOM.findDOMNode(this.refs.alphaThreshold).value;
         data.detectIdentical = ReactDOM.findDOMNode(this.refs.detectIdentical).checked;
@@ -193,6 +195,7 @@ class PackProperties extends React.Component {
         ReactDOM.findDOMNode(this.refs.allowTrim).checked = this.packOptions.allowTrim;
         ReactDOM.findDOMNode(this.refs.solverMode).value = this.packOptions.solverMode || 'manual';
         ReactDOM.findDOMNode(this.refs.disableMaxLimit).checked = this.packOptions.disableMaxLimit;
+        ReactDOM.findDOMNode(this.refs.packingAlgorithm).value = this.packOptions.packingAlgorithm || 'best';
         ReactDOM.findDOMNode(this.refs.trimMode).value = this.packOptions.trimMode;
         ReactDOM.findDOMNode(this.refs.alphaThreshold).value = this.packOptions.alphaThreshold || 0;
         ReactDOM.findDOMNode(this.refs.detectIdentical).checked = this.packOptions.detectIdentical;
@@ -420,6 +423,24 @@ class PackProperties extends React.Component {
                                         <option value="scale">Scale (Auto-fit & Scale)</option>
                                         <option value="auto">Auto (Smart Decision)</option>
                                         <option value="multi-atlas">Multi-Atlas</option>
+                                    </select>
+                                </td>
+                                <td></td>
+                            </tr>
+                            <tr title="Packing Algorithm" style={{display: this.packOptions.solverMode !== 'manual' ? '' : 'none'}}>
+                                <td>Algorithm</td>
+                                <td>
+                                    <select ref="packingAlgorithm" className="border-color-gray" onChange={this.onPropChanged} defaultValue={this.packOptions.packingAlgorithm || 'best'} style={{width: '100%'}}>
+                                        <option value="best">Best Overall (Recommended)</option>
+                                        <option value="maxrects_bssf">MaxRects (Best Short Side)</option>
+                                        <option value="maxrects_blsf">MaxRects (Best Long Side)</option>
+                                        <option value="maxrects_baf">MaxRects (Best Area Fit)</option>
+                                        <option value="maxrects_blr">MaxRects (Bottom Left)</option>
+                                        <option value="maxrects_cp">MaxRects (Contact Point)</option>
+                                        <option value="guillotine_bssf">Guillotine (Short Side)</option>
+                                        <option value="guillotine_baf">Guillotine (Best Area)</option>
+                                        <option value="shelf">Shelf</option>
+                                        <option value="skyline">Skyline</option>
                                     </select>
                                 </td>
                                 <td></td>

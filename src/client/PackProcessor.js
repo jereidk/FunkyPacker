@@ -310,7 +310,7 @@ class PackProcessor {
      * Calculate optimal atlas dimensions using SmartSizeSolver
      * @param {Array} rects - Array of sprite rectangles
      * @param {Object} options - Solver options
-     * @returns {Object} - { width, height, efficiency, mode, message }
+     * @returns {Object} - { width, height, efficiency, mode, message, algorithm }
      */
     static calculateOptimalDimensions(rects, options = {}) {
         const mode = options.solverMode || SOLVER_MODE.MANUAL;
@@ -321,7 +321,8 @@ class PackProcessor {
                 height: options.height || 512,
                 efficiency: 0,
                 mode: SOLVER_MODE.MANUAL,
-                message: 'Manual mode - using specified dimensions'
+                message: 'Manual mode - using specified dimensions',
+                algorithm: 'manual'
             };
         }
 
@@ -329,7 +330,8 @@ class PackProcessor {
             padding: options.spritePadding || 0,
             borderPadding: options.borderPadding || 0,
             allowRotation: options.allowRotation || false,
-            disableMaxLimit: options.disableMaxLimit || false
+            disableMaxLimit: options.disableMaxLimit || false,
+            algorithm: options.packingAlgorithm || SmartSizeSolver.Advanced.ALGORITHM.BEST
         };
 
         const optimal = SmartSizeSolver.calculateOptimalDimensions(rects, solverOptions);
@@ -345,7 +347,8 @@ class PackProcessor {
                     message: `Scaled to fit: ${optimal.width}x${optimal.height} -> ${scaleResult.scaledWidth}x${scaleResult.scaledHeight} (${(scaleResult.scale * 100).toFixed(0)}%)`,
                     originalWidth: optimal.width,
                     originalHeight: optimal.height,
-                    scale: scaleResult.scale
+                    scale: scaleResult.scale,
+                    algorithm: optimal.algorithm
                 };
             }
             return {
@@ -353,7 +356,8 @@ class PackProcessor {
                 height: optimal.height,
                 efficiency: optimal.efficiency,
                 mode: SOLVER_MODE.SCALE,
-                message: 'Optimal dimensions found'
+                message: 'Optimal dimensions found',
+                algorithm: optimal.algorithm
             };
         }
 
@@ -369,7 +373,8 @@ class PackProcessor {
                     message: `Multi-atlas recommended: single atlas efficiency was ${(optimal.efficiency * 100).toFixed(1)}%`,
                     originalWidth: optimal.width,
                     originalHeight: optimal.height,
-                    scale: scaleResult.scale
+                    scale: scaleResult.scale,
+                    algorithm: optimal.algorithm
                 };
             }
             
@@ -380,7 +385,8 @@ class PackProcessor {
                 mode: SOLVER_MODE.SCALE,
                 message: scaleResult.requiresScale ? 
                     `Scaled to fit: ${optimal.width}x${optimal.height} -> ${scaleResult.scaledWidth}x${scaleResult.scaledHeight}` :
-                    'Single atlas optimal'
+                    'Single atlas optimal',
+                algorithm: optimal.algorithm
             };
         }
 
@@ -389,7 +395,8 @@ class PackProcessor {
             height: optimal.height,
             efficiency: optimal.efficiency,
             mode: mode,
-            message: 'Calculated optimal dimensions'
+            message: 'Calculated optimal dimensions',
+            algorithm: optimal.algorithm
         };
     }
 
