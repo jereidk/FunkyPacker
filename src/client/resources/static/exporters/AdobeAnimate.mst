@@ -1,0 +1,20 @@
+{
+  "frames": {
+    {{#rects}}"{{{name}}}": {
+      "frame": {"x": {{frame.x}}, "y": {{frame.y}}, "w": {{frame.w}}, "h": {{frame.h}}},
+      "rotated": {{#rotated}}1{{/rotated}}{{^rotated}}0{{/rotated}},
+      "trimmed": {{#trimmed}}1{{/trimmed}}{{^trimmed}}0{{/trimmed}},
+      "spriteSourceSize": {"x": {{spriteSourceSize.x}}, "y": {{spriteSourceSize.y}}, "w": {{spriteSourceSize.w}}, "h": {{spriteSourceSize.h}}},
+      "sourceSize": {"w": {{sourceSize.w}}, "h": {{sourceSize.h}}}
+    }{{^last}},{{/last}}{{/rects}}
+  },
+  "meta": {
+    "app": "FunkyPacker",
+    "version": "{{appInfo.version}}",
+    "image": "{{config.imageFile}}",
+    "format": "{{config.format}}",
+    "size": {"w": {{config.imageWidth}}, "h": {{config.imageHeight}}},
+    "scale": "{{config.scale}}",
+    "smartupdate": "$ContentHash$"
+  }
+}
