@@ -100,15 +100,6 @@ class PackProperties extends React.Component {
         data.detectIdentical = data.detectIdentical === undefined ? true : data.detectIdentical;
         data.sortExportedRows = data.sortExportedRows === undefined ? true : data.sortExportedRows;
         data.packer = getPackerByType(data.packer) ? data.packer : packers[2].type;
-        
-        // BetterTA Animation Options
-        data.btaFramerate = data.btaFramerate || 24;
-        data.btaCanvasWidth = data.btaCanvasWidth || 1280;
-        data.btaCanvasHeight = data.btaCanvasHeight || 720;
-        data.btaBackgroundColor = data.btaBackgroundColor || "#999999";
-        data.btaAnimationName = data.btaAnimationName || "animations";
-        data.btaLoopAnimation = data.btaLoopAnimation === undefined ? true : data.btaLoopAnimation;
-        data.btaAutoGroupFrames = data.btaAutoGroupFrames === undefined ? true : data.btaAutoGroupFrames;
 
         let methodValid = false;
         let packer = getPackerByType(data.packer);
@@ -177,29 +168,6 @@ class PackProperties extends React.Component {
         data.packer = ReactDOM.findDOMNode(this.refs.packer).value;
         data.packerMethod = ReactDOM.findDOMNode(this.refs.packerMethod).value;
         data.sortExportedRows = ReactDOM.findDOMNode(this.refs.sortExportedRows).value;
-
-        // BetterTA Animation Options
-        if (this.refs.btaFramerate) {
-            data.btaFramerate = parseInt(ReactDOM.findDOMNode(this.refs.btaFramerate).value) || 24;
-        }
-        if (this.refs.btaCanvasWidth) {
-            data.btaCanvasWidth = parseInt(ReactDOM.findDOMNode(this.refs.btaCanvasWidth).value) || 1280;
-        }
-        if (this.refs.btaCanvasHeight) {
-            data.btaCanvasHeight = parseInt(ReactDOM.findDOMNode(this.refs.btaCanvasHeight).value) || 720;
-        }
-        if (this.refs.btaBackgroundColor) {
-            data.btaBackgroundColor = ReactDOM.findDOMNode(this.refs.btaBackgroundColor).value || "#999999";
-        }
-        if (this.refs.btaAnimationName) {
-            data.btaAnimationName = ReactDOM.findDOMNode(this.refs.btaAnimationName).value || "animations";
-        }
-        if (this.refs.btaLoopAnimation) {
-            data.btaLoopAnimation = ReactDOM.findDOMNode(this.refs.btaLoopAnimation).checked;
-        }
-        if (this.refs.btaAutoGroupFrames) {
-            data.btaAutoGroupFrames = ReactDOM.findDOMNode(this.refs.btaAutoGroupFrames).checked;
-        }
 
         this.packOptions = this.applyOptionsDefaults(data);
     }
@@ -425,69 +393,11 @@ class PackProperties extends React.Component {
                                 </td>
                             </tr>
                             
-                            {/* BetterTA Animation Options - Show only when BetterTA is selected */}
-                            <tr ref="btaOptions" style={{ display: this.packOptions.exporter === 'BetterTA (Atlas)' ? '' : 'none', backgroundColor: '#1e3a5f' }}>
-                                <td colSpan="3" className="center-align" style={{padding: '8px 0', color: '#4fc3f7'}}>
-                                    <strong>BetterTA Animation Settings</strong>
+                            {/* BetterTA Info - Show only when BetterTA is selected */}
+                            <tr ref="btaInfo" style={{ display: this.packOptions.exporter === 'BetterTA (Atlas)' ? '' : 'none', backgroundColor: '#2a4a6a' }}>
+                                <td colSpan="3" style={{padding: '8px', color: '#a8d4ff', fontSize: '12px', textAlign: 'center'}}>
+                                    <strong>BetterTA Atlas:</strong> Load <em>spritemap.json</em> + <em>Animation.json</em> in Sheet Splitter to preserve animation data
                                 </td>
-                            </tr>
-                            <tr ref="btaAnimName" style={{ display: this.packOptions.exporter === 'BetterTA (Atlas)' ? '' : 'none' }}>
-                                <td>Animation Name:</td>
-                                <td>
-                                    <input ref="btaAnimationName" type="text" className="border-color-gray" 
-                                        defaultValue={this.packOptions.btaAnimationName || "animations"} 
-                                        onBlur={this.onPropChanged} />
-                                </td>
-                                <td></td>
-                            </tr>
-                            <tr ref="btaFramerate" style={{ display: this.packOptions.exporter === 'BetterTA (Atlas)' ? '' : 'none' }}>
-                                <td>Framerate (FPS):</td>
-                                <td>
-                                    <input ref="btaFramerate" type="number" className="border-color-gray" 
-                                        defaultValue={this.packOptions.btaFramerate || 24} 
-                                        min="1" max="240" onBlur={this.onPropChanged} />
-                                </td>
-                                <td></td>
-                            </tr>
-                            <tr ref="btaCanvas" style={{ display: this.packOptions.exporter === 'BetterTA (Atlas)' ? '' : 'none' }}>
-                                <td>Canvas Size:</td>
-                                <td>
-                                    <input ref="btaCanvasWidth" type="number" className="border-color-gray" 
-                                        defaultValue={this.packOptions.btaCanvasWidth || 1280} 
-                                        min="1" style={{width: '60px'}} onBlur={this.onPropChanged} />
-                                    <span> x </span>
-                                    <input ref="btaCanvasHeight" type="number" className="border-color-gray" 
-                                        defaultValue={this.packOptions.btaCanvasHeight || 720} 
-                                        min="1" style={{width: '60px'}} onBlur={this.onPropChanged} />
-                                </td>
-                                <td></td>
-                            </tr>
-                            <tr ref="btaBgColor" style={{ display: this.packOptions.exporter === 'BetterTA (Atlas)' ? '' : 'none' }}>
-                                <td>Background:</td>
-                                <td>
-                                    <input ref="btaBackgroundColor" type="color" className="border-color-gray" 
-                                        defaultValue={this.packOptions.btaBackgroundColor || "#999999"} 
-                                        onChange={this.onPropChanged} />
-                                </td>
-                                <td></td>
-                            </tr>
-                            <tr ref="btaLoop" style={{ display: this.packOptions.exporter === 'BetterTA (Atlas)' ? '' : 'none' }}>
-                                <td>Loop Animation:</td>
-                                <td>
-                                    <input ref="btaLoopAnimation" type="checkbox" className="border-color-gray" 
-                                        defaultChecked={this.packOptions.btaLoopAnimation ? "checked" : ""} 
-                                        onChange={this.onPropChanged} />
-                                </td>
-                                <td></td>
-                            </tr>
-                            <tr ref="btaAutoGroup" style={{ display: this.packOptions.exporter === 'BetterTA (Atlas)' ? '' : 'none' }}>
-                                <td>Auto-group Frames:</td>
-                                <td>
-                                    <input ref="btaAutoGroupFrames" type="checkbox" className="border-color-gray" 
-                                        defaultChecked={this.packOptions.btaAutoGroupFrames !== false ? "checked" : ""} 
-                                        onChange={this.onPropChanged} />
-                                </td>
-                                <td></td>
                             </tr>
                             <tr title={I18.f("FILE_NAME_TITLE")} style={{display: PLATFORM === 'web' ? '' : 'none'}}>
                                 <td>{I18.f("FILE_NAME")}</td>

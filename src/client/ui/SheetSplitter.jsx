@@ -11,6 +11,7 @@ import Downloader from "platform/Downloader";
 import ImagesList from "./ImagesList.jsx";
 import { cleanPrefix } from '../utils/common';
 import sparrowStore from '../store/sparrowStore';
+import { getAnimationLinker } from '../utils/AnimationLinker';
 
 class SheetSplitter extends React.Component {
     constructor(props) {
@@ -34,6 +35,7 @@ class SheetSplitter extends React.Component {
 
         this.textureName = '';
         this.dataName = '';
+        this.animationFileName = '';
         
         // Auto-fill names for export
         this.exportName = '';
@@ -45,6 +47,7 @@ class SheetSplitter extends React.Component {
         this.doRepack = this.doRepack.bind(this);
         this.selectTexture = this.selectTexture.bind(this);
         this.selectDataFile = this.selectDataFile.bind(this);
+        this.selectAnimationFile = this.selectAnimationFile.bind(this);
         this.updateFrames = this.updateFrames.bind(this);
         this.updateView = this.updateView.bind(this);
         this.changeSplitter = this.changeSplitter.bind(this);
@@ -361,6 +364,35 @@ class SheetSplitter extends React.Component {
         }
     }
 
+    selectAnimationFile(e) {
+        if(e.target.files.length) {
+            let item = e.target.files[0];
+
+            let reader = new FileReader();
+            reader.onload = e => {
+                let content = e.target.result;
+                content = content.split(',');
+                content.shift();
+                content = atob(content);
+
+                // Load Animation.json into AnimationLinker
+                let animLinker = getAnimationLinker();
+                let success = animLinker.loadAnimation(content);
+
+                this.animationFileName = item.name;
+                ReactDOM.findDOMNode(this.refs.animationFileName).textContent = 
+                    success ? this.animationFileName + ' ✓' : this.animationFileName + ' ✗';
+
+                if (success) {
+                    let refs = animLinker.getReferencedSprites();
+                    console.log('AnimationLinker: Loaded', refs.length, 'sprite references from Animation.json');
+                }
+            };
+
+            reader.readAsDataURL(item);
+        }
+    }
+
     updateFrames() {
         if(!this.texture) return;
 
@@ -464,6 +496,10 @@ class SheetSplitter extends React.Component {
             }
         }
 
+        // Show Animation.json selector for BetterTA format
+        let isBetterTA = displayType === 'BetterTA';
+        let animationFileStyle = isBetterTA ? {} : { display: 'none' };
+
         return (
             <div className="sheet-splitter-shader">
                 <div className="sheet-splitter-content">
@@ -483,11 +519,28 @@ class SheetSplitter extends React.Component {
                                     <td>
                                         <div className="btn back-800 border-color-gray color-white file-upload">
                                             {I18.f("SELECT_DATA_FILE")}
-                                            <input type="file" ref="selectTextureInput" onChange={this.selectDataFile} />
+                                            <input type="file" onChange={this.selectDataFile} />
                                         </div>
                                     </td>
                                     <td>
                                         <div className="back-400 border-color-gray color-black sheet-splitter-info-text" ref="dataFileName">&nbsp;</div>
+                                    </td>
+                                </tr>
+                                {/* Animation.json selector - only shown for BetterTA */}
+                                <tr style={animationFileStyle}>
+                                    <td colSpan="4" style={{ paddingTop: '8px' }}>
+                                        <div className="btn back-600 border-color-gray color-white file-upload" style={{ display: 'inline-block' }}>
+                                            Select Animation.json (Optional)
+                                            <input type="file" accept=".json" onChange={this.selectAnimationFile} />
+                                        </div>
+                                        <span className="back-400 border-color-gray color-black sheet-splitter-info-text" 
+                                              ref="animationFileName" 
+                                              style={{ marginLeft: '10px', padding: '4px 8px' }}>
+                                            &nbsp;
+                                        </span>
+                                        <span style={{ marginLeft: '10px', color: '#888', fontSize: '12px' }}>
+                                            Required for preserving animation data during repack
+                                        </span>
                                     </td>
                                 </tr>
                             </tbody>

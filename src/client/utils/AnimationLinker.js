@@ -64,18 +64,36 @@ class AnimationLinker {
     }
 
     /**
-     * Recursively walk the animation structure to find sprite references
+     * Recursively walk the animation structure to find sprite and symbol references
      */
     walkForSpriteReferences(node, path = '') {
         if (!node || typeof node !== 'object') return;
 
-        // Check for ASI (Atlas Sprite Instance) - references a sprite by name
+        // Check for ASI (Atlas Sprite Instance) - references a bitmap sprite by name
         if (node.ASI && node.ASI.N) {
             let spriteName = node.ASI.N;
             if (!this.spriteReferences.has(spriteName)) {
                 this.spriteReferences.set(spriteName, []);
             }
-            this.spriteReferences.get(spriteName).push(path);
+            this.spriteReferences.get(spriteName).push({path, type: 'ASI'});
+        }
+
+        // Check for SI (Symbol Instance) - references a symbol by name
+        if (node.SI && node.SI.SN) {
+            let symbolName = node.SI.SN;
+            if (!this.spriteReferences.has(symbolName)) {
+                this.spriteReferences.set(symbolName, []);
+            }
+            this.spriteReferences.get(symbolName).push({path, type: 'SI'});
+        }
+
+        // Also check for SN directly at this level (some formats use this)
+        if (node.SN && typeof node.SN === 'string') {
+            let name = node.SN;
+            if (!this.spriteReferences.has(name)) {
+                this.spriteReferences.set(name, []);
+            }
+            this.spriteReferences.get(name).push({path, type: 'SN'});
         }
 
         // Recursively check arrays
@@ -94,17 +112,45 @@ class AnimationLinker {
     }
 
     /**
-     * Check if a sprite name is referenced in the animation
+     * Check if a name is referenced in the animation
      */
-    isSpriteReferenced(spriteName) {
-        return this.spriteReferences.has(spriteName);
+    isReferenced(name) {
+        return this.spriteReferences.has(name);
     }
 
     /**
-     * Get all referenced sprite names
+     * Get all referenced names (both sprites and symbols)
+     */
+    getReferencedNames() {
+        return Array.from(this.spriteReferences.keys());
+    }
+
+    /**
+     * Get referenced sprite names (ASI type only - actual bitmap sprites)
      */
     getReferencedSprites() {
-        return Array.from(this.spriteReferences.keys());
+        let sprites = [];
+        for (let [name, refs] of this.spriteReferences) {
+            // Only include ASI references (actual bitmap sprites)
+            if (refs.some(r => r.type === 'ASI' || r.type === 'SN')) {
+                sprites.push(name);
+            }
+        }
+        return sprites;
+    }
+
+    /**
+     * Get referenced symbol names (SI type only - symbol instances)
+     */
+    getReferencedSymbols() {
+        let symbols = [];
+        for (let [name, refs] of this.spriteReferences) {
+            // Only include SI references (symbol instances)
+            if (refs.some(r => r.type === 'SI')) {
+                symbols.push(name);
+            }
+        }
+        return symbols;
     }
 
     /**
@@ -112,26 +158,41 @@ class AnimationLinker {
      */
     getUnreferencedSprites(allSprites) {
         let referenced = this.getReferencedSprites();
-        return allSprites.filter(s => !referenced.includes(s));
+        return allSprites.filter(s => !referenced.includes(s.name || s));
     }
 
     /**
      * Check for orphaned references (sprites removed but still referenced)
+     * Returns sprites and symbols that are referenced but don't exist
      */
-    validateSpriteExistence(sprites) {
+    validateExistence(sprites) {
         let spriteNames = new Set(sprites.map(s => s.name || s));
-        let orphaned = [];
+        let orphanedSprites = [];
+        let orphanedSymbols = [];
 
-        for (let [spriteName, locations] of this.spriteReferences) {
-            if (!spriteNames.has(spriteName)) {
-                orphaned.push({
-                    name: spriteName,
-                    locations: locations
-                });
+        for (let [name, refs] of this.spriteReferences) {
+            if (!spriteNames.has(name)) {
+                // Check if this is a sprite or symbol reference
+                let isSpriteRef = refs.some(r => r.type === 'ASI' || r.type === 'SN');
+                let isSymbolRef = refs.some(r => r.type === 'SI');
+                
+                if (isSpriteRef && !isSymbolRef) {
+                    orphanedSprites.push({name, locations: refs});
+                } else if (isSymbolRef) {
+                    orphanedSymbols.push({name, locations: refs});
+                } else {
+                    // Unknown type, include in both
+                    orphanedSprites.push({name, locations: refs});
+                    orphanedSymbols.push({name, locations: refs});
+                }
             }
         }
 
-        return orphaned;
+        return {
+            sprites: orphanedSprites,
+            symbols: orphanedSymbols,
+            total: orphanedSprites.length + orphanedSymbols.length
+        };
     }
 
     /**
