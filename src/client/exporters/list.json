@@ -105,12 +105,13 @@
   },
   {
     "type": "BetterTA (Atlas)",
-    "description": "BetterTA Atlas format - Adobe Animate compatible",
+    "description": "BetterTA Atlas format - Adobe Animate compatible (preserves Animation.json)",
     "allowTrim": true,
-    "allowRotation": true,
+    "allowRotation": false,
     "template": "BetterTA.mst",
     "fileExt": "json",
-    "multiExport": true
+    "multiExport": true,
+    "preserveAnimationJson": true
   },
 
   {

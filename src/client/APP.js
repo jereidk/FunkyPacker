@@ -4,6 +4,7 @@ import TextureRenderer from './utils/TextureRenderer';
 import { getFilterByType } from './filters';
 import I18 from './utils/I18';
 import { startExporter, startBetterTAExporter } from './exporters';
+import { getAnimationLinker } from './utils/AnimationLinker';
 import astcEncoder from './utils/astc/ASTCEncoder';
 //import Tinifyer from 'platform/Tinifyer';
 import Downloader from 'platform/Downloader';
@@ -221,16 +222,23 @@ class APP {
             try {
                 // Check if this is the BetterTA exporter
                 if (exporter.type === "BetterTA (Atlas)") {
-                    // Use BetterTA exporter which generates both Atlas.json and Animation.json
+                    // Use BetterTA exporter which generates Atlas.json
                     let betterTAOutput = await startBetterTAExporter(exporter, item.data, options);
                     files.push({
                         name: betterTAOutput.atlas.name,
                         content: betterTAOutput.atlas.content
                     });
-                    files.push({
-                        name: betterTAOutput.animation.name,
-                        content: betterTAOutput.animation.content
-                    });
+                    
+                    // If we have a preserved Animation.json, export it unchanged
+                    let animLinker = getAnimationLinker();
+                    if (animLinker.isLoaded()) {
+                        files.push({
+                            name: betterTAOutput.animation.name,
+                            content: animLinker.toJSON()
+                        });
+                        console.log('BetterTA: Animation.json preserved unchanged (sprites: ' + 
+                            animLinker.getReferencedSprites().length + ')');
+                    }
                 } else {
                     // Standard exporter
                     files.push({
