@@ -5,6 +5,7 @@ import JsonArray from './JsonArray';
 import UIKit from './UIKit';
 import Spine from './Spine';
 import Sparrow from './Sparrow';
+import BetterTA from './BetterTA';
 
 const list = [
     Sparrow,
@@ -13,7 +14,8 @@ const list = [
     JsonArray,
     //XML,
     UIKit,
-    Spine
+    Spine,
+    BetterTA
 ];
 
 function getSplitterByType(type) {

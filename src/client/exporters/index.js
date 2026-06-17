@@ -229,5 +229,143 @@ function finishExporter(exporter, renderOptions, resolve, reject) {
     }
 }
 
-export {getExporterByType, startExporter};
+/**
+ * BetterTA Exporter - Generates both Atlas.json and Animation.json
+ */
+async function startBetterTAExporter(exporter, data, options) {
+    let {rects, config} = prepareData(data, options);
+    let renderOptions = {
+        rects: rects,
+        config: config,
+        appInfo: appInfo
+    };
+
+    // Sort the exported rows
+    if(options.sortExportedRows) {
+        rects = rects.sort((a, b) => {
+            return smartSortImages(a.name, b.name);
+        });
+    }
+
+    // Mark first and last for template
+    if(rects.length) {
+        rects[0].first = true;
+        rects[rects.length-1].last = true;
+    }
+
+    // Load atlas template
+    let atlasTemplate;
+    if (exporter.content) {
+        atlasTemplate = exporter.content;
+    } else {
+        atlasTemplate = await new Promise((resolve, reject) => {
+            GET("static/exporters/" + exporter.template, null, resolve, () => reject(exporter.template + " not found"));
+        });
+        exporter.content = atlasTemplate;
+    }
+
+    // Generate Atlas.json
+    let atlasContent = mustache.render(atlasTemplate, renderOptions);
+
+    // Generate Animation.json with frame metadata
+    let animationContent = generateBetterTAAnimation(rects, config);
+
+    return {
+        atlas: {
+            name: config.imageName + ".json",
+            content: atlasContent
+        },
+        animation: {
+            name: config.imageName + "Animation.json",
+            content: animationContent
+        }
+    };
+}
+
+/**
+ * Generate Animation.json for BetterTA format
+ */
+function generateBetterTAAnimation(rects, config) {
+    let animations = {};
+
+    // Group frames by base name (remove numbers at the end)
+    // e.g., "idle_0001", "idle_0002" -> "idle"
+    let framesByPrefix = {};
+
+    for (let i = 0; i < rects.length; i++) {
+        let rect = rects[i];
+        let name = rect.name;
+
+        // Extract base name (remove trailing numbers and common separators)
+        let baseName = name.replace(/[_\-]?\d+$/g, '').replace(/[_\-]$/g, '') || name;
+
+        if (!framesByPrefix[baseName]) {
+            framesByPrefix[baseName] = [];
+        }
+
+        framesByPrefix[baseName].push({
+            name: name,
+            index: i,
+            frame: rect.frame
+        });
+    }
+
+    // Create animations for each group
+    for (let [baseName, frames] of Object.entries(framesByPrefix)) {
+        if (frames.length > 0) {
+            animations[baseName] = {
+                frames: frames.map(f => f.name),
+                speed: 12, // Default FPS
+                loop: true
+            };
+        }
+    }
+
+    // If no groupings found, create a default animation with all frames
+    if (Object.keys(animations).length === 0) {
+        animations["default"] = {
+            frames: rects.map(r => r.name),
+            speed: 12,
+            loop: true
+        };
+    }
+
+    // Build complete animation JSON structure
+    let animation = {
+        version: "1.0",
+        name: config.imageName,
+        spritesheet: config.imageFile,
+        size: {
+            w: config.imageWidth,
+            h: config.imageHeight
+        },
+        animations: animations,
+        frames: rects.map((rect, index) => ({
+            name: rect.name,
+            index: index,
+            frame: {
+                x: rect.frame.x,
+                y: rect.frame.y,
+                w: rect.frame.w,
+                h: rect.frame.h
+            },
+            sourceSize: {
+                w: rect.sourceSize.w,
+                h: rect.sourceSize.h
+            },
+            spriteSourceSize: {
+                x: rect.spriteSourceSize.x,
+                y: rect.spriteSourceSize.y,
+                w: rect.spriteSourceSize.w,
+                h: rect.spriteSourceSize.h
+            },
+            rotated: rect.rotated,
+            trimmed: rect.trimmed
+        }))
+    };
+
+    return JSON.stringify(animation, null, 2);
+}
+
+export {getExporterByType, startExporter, startBetterTAExporter};
 export default list;

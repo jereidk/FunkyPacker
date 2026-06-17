@@ -3,7 +3,7 @@ import PackProcessor from './PackProcessor';
 import TextureRenderer from './utils/TextureRenderer';
 import { getFilterByType } from './filters';
 import I18 from './utils/I18';
-import { startExporter } from './exporters';
+import { startExporter, startBetterTAExporter } from './exporters';
 import astcEncoder from './utils/astc/ASTCEncoder';
 //import Tinifyer from 'platform/Tinifyer';
 import Downloader from 'platform/Downloader';
@@ -210,10 +210,25 @@ class APP {
             };
 
             try {
-                files.push({
-                    name: fName + "." + this.packOptions.exporter.fileExt,
-                    content: await startExporter(exporter, item.data, options)
-                });
+                // Check if this is the BetterTA exporter
+                if (exporter.type === "BetterTA (Atlas)") {
+                    // Use BetterTA exporter which generates both Atlas.json and Animation.json
+                    let betterTAOutput = await startBetterTAExporter(exporter, item.data, options);
+                    files.push({
+                        name: betterTAOutput.atlas.name,
+                        content: betterTAOutput.atlas.content
+                    });
+                    files.push({
+                        name: betterTAOutput.animation.name,
+                        content: betterTAOutput.animation.content
+                    });
+                } else {
+                    // Standard exporter
+                    files.push({
+                        name: fName + "." + this.packOptions.exporter.fileExt,
+                        content: await startExporter(exporter, item.data, options)
+                    });
+                }
             }
             catch (e) {
                 Observer.emit(GLOBAL_EVENT.HIDE_SHADER);
