@@ -267,7 +267,7 @@ async function startBetterTAExporter(exporter, data, options) {
     // Generate Atlas.json
     let atlasContent = mustache.render(atlasTemplate, renderOptions);
 
-    // Generate Animation.json with frame metadata
+    // Generate Animation.json with frame metadata following BetterTA format
     let animationContent = generateBetterTAAnimation(rects, config);
 
     return {
@@ -283,85 +283,113 @@ async function startBetterTAExporter(exporter, data, options) {
 }
 
 /**
+ * Parse animation name from frame name
+ * e.g., "walk_0001" -> "walk", "idle_001" -> "idle"
+ */
+function parseAnimationName(frameName) {
+    // Try multiple patterns to extract animation name
+    let name = frameName;
+    
+    // Pattern 1: Remove numeric suffix with separator (walk_0001, walk-001)
+    name = name.replace(/[_\-]\d+$/g, '');
+    
+    // Pattern 2: Remove trailing numbers only (walk0001 -> walk)
+    name = name.replace(/\d+$/g, '');
+    
+    // Pattern 3: Remove trailing separators
+    name = name.replace(/[_\-]+$/g, '');
+    
+    return name || frameName;
+}
+
+/**
  * Generate Animation.json for BetterTA format
+ * This matches the format used by Adobe Animate Better TA Extension
+ * 
+ * Structure:
+ * {
+ *   "ATLAS": {
+ *     "ANIMATIONS": {
+ *       "animationName": {
+ *         "start": 0,
+ *         "end": 10,
+ *         "speed": 12,
+ *         "loop": true,
+ *         "name": "animationName",
+ *         "frames": ["frame0", "frame1", ...]
+ *       }
+ *     },
+ *     "SPRITES": [...] // Frame references by index
+ *   },
+ *   "meta": {...}
+ * }
  */
 function generateBetterTAAnimation(rects, config) {
+    // Group frames by animation name while maintaining order
     let animations = {};
-
-    // Group frames by base name (remove numbers at the end)
-    // e.g., "idle_0001", "idle_0002" -> "idle"
-    let framesByPrefix = {};
+    let frameNames = [];
 
     for (let i = 0; i < rects.length; i++) {
         let rect = rects[i];
-        let name = rect.name;
+        let animName = parseAnimationName(rect.name);
+        
+        // Skip empty names
+        if (!animName) animName = 'default';
 
-        // Extract base name (remove trailing numbers and common separators)
-        let baseName = name.replace(/[_\-]?\d+$/g, '').replace(/[_\-]$/g, '') || name;
+        frameNames.push(rect.name);
 
-        if (!framesByPrefix[baseName]) {
-            framesByPrefix[baseName] = [];
-        }
-
-        framesByPrefix[baseName].push({
-            name: name,
-            index: i,
-            frame: rect.frame
-        });
-    }
-
-    // Create animations for each group
-    for (let [baseName, frames] of Object.entries(framesByPrefix)) {
-        if (frames.length > 0) {
-            animations[baseName] = {
-                frames: frames.map(f => f.name),
-                speed: 12, // Default FPS
-                loop: true
+        // Initialize animation group if needed
+        if (!animations[animName]) {
+            animations[animName] = {
+                start: i,
+                end: i,
+                frames: []
             };
         }
+        
+        // Update end index and add frame reference
+        animations[animName].end = i;
+        animations[animName].frames.push(i); // Store index, not name
     }
 
-    // If no groupings found, create a default animation with all frames
-    if (Object.keys(animations).length === 0) {
-        animations["default"] = {
-            frames: rects.map(r => r.name),
-            speed: 12,
-            loop: true
+    // Build sprite references using atlas sprite names
+    let sprites = frameNames.map((name, index) => ({
+        name: name,
+        index: index
+    }));
+
+    // Convert animation indices to names
+    let animationsOutput = {};
+    for (let [animName, animData] of Object.entries(animations)) {
+        animationsOutput[animName] = {
+            start: animData.start,
+            end: animData.end,
+            speed: 12,  // Default FPS
+            name: animName,
+            loop: true,
+            pingpong: false,
+            frames: animData.frames.map(idx => frameNames[idx])
         };
     }
 
-    // Build complete animation JSON structure
+    // Build complete animation JSON structure matching BetterTA format
     let animation = {
-        version: "1.0",
-        name: config.imageName,
-        spritesheet: config.imageFile,
-        size: {
-            w: config.imageWidth,
-            h: config.imageHeight
+        "ATLAS": {
+            "ANIMATIONS": animationsOutput,
+            "SPRITES": sprites
         },
-        animations: animations,
-        frames: rects.map((rect, index) => ({
-            name: rect.name,
-            index: index,
-            frame: {
-                x: rect.frame.x,
-                y: rect.frame.y,
-                w: rect.frame.w,
-                h: rect.frame.h
+        "meta": {
+            "app": "FunkyPacker",
+            "version": appInfo.version,
+            "image": config.imageFile,
+            "format": config.format,
+            "size": {
+                "w": config.imageWidth,
+                "h": config.imageHeight
             },
-            sourceSize: {
-                w: rect.sourceSize.w,
-                h: rect.sourceSize.h
-            },
-            spriteSourceSize: {
-                x: rect.spriteSourceSize.x,
-                y: rect.spriteSourceSize.y,
-                w: rect.spriteSourceSize.w,
-                h: rect.spriteSourceSize.h
-            },
-            rotated: rect.rotated,
-            trimmed: rect.trimmed
-        }))
+            "resolution": config.scale || "1",
+            "framerate": 12
+        }
     };
 
     return JSON.stringify(animation, null, 2);
