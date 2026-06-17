@@ -267,7 +267,7 @@ async function startBetterTAExporter(exporter, data, options) {
     // Generate Atlas.json
     let atlasContent = mustache.render(atlasTemplate, renderOptions);
 
-    // Generate Animation.json with frame metadata following BetterTA format
+    // Generate Animation.json following exact BetterTA/BTA format
     let animationContent = generateBetterTAAnimation(rects, config);
 
     return {
@@ -283,116 +283,213 @@ async function startBetterTAExporter(exporter, data, options) {
 }
 
 /**
- * Parse animation name from frame name
- * e.g., "walk_0001" -> "walk", "idle_001" -> "idle"
- */
-function parseAnimationName(frameName) {
-    // Try multiple patterns to extract animation name
-    let name = frameName;
-    
-    // Pattern 1: Remove numeric suffix with separator (walk_0001, walk-001)
-    name = name.replace(/[_\-]\d+$/g, '');
-    
-    // Pattern 2: Remove trailing numbers only (walk0001 -> walk)
-    name = name.replace(/\d+$/g, '');
-    
-    // Pattern 3: Remove trailing separators
-    name = name.replace(/[_\-]+$/g, '');
-    
-    return name || frameName;
-}
-
-/**
- * Generate Animation.json for BetterTA format
- * This matches the format used by Adobe Animate Better TA Extension
+ * Generate Animation.json following the exact BetterTA (BTA) format
+ * used by Adobe Animate with the Better Texture Atlas extension.
  * 
- * Structure:
+ * Format structure:
  * {
- *   "ATLAS": {
- *     "ANIMATIONS": {
- *       "animationName": {
- *         "start": 0,
- *         "end": 10,
- *         "speed": 12,
- *         "loop": true,
- *         "name": "animationName",
- *         "frames": ["frame0", "frame1", ...]
- *       }
- *     },
- *     "SPRITES": [...] // Frame references by index
- *   },
- *   "meta": {...}
+ *   "AN": { ... } - Animation Node (root timeline)
+ *   "SD": { ... } - Symbol Dictionary
+ *   "MD": { ... } - Metadata
  * }
  */
 function generateBetterTAAnimation(rects, config) {
-    // Group frames by animation name while maintaining order
-    let animations = {};
-    let frameNames = [];
+    const FRAMERATE = 24; // Default 24 FPS for Adobe Animate
+    
+    // Group frames by animation prefix (e.g., "walk_001" -> "walk")
+    let animationGroups = groupFramesByAnimation(rects);
+    
+    // Build the root animation node (AN)
+    let rootAnimationNode = buildRootAnimationNode(animationGroups, rects, FRAMERATE);
+    
+    // Build symbol dictionary (SD) - creates symbol definitions for each frame
+    let symbolDictionary = buildSymbolDictionary(rects);
+    
+    // Build metadata (MD)
+    let metadata = {
+        "V": "BTA 1.2.0",       // BTA version
+        "N": config.imageName,  // Animation name
+        "BGC": "#999999",        // Background color
+        "W": config.imageWidth,  // Canvas width
+        "H": config.imageHeight, // Canvas height
+        "ASV": 3,               // Atlas Structure Version
+        "FRT": FRAMERATE        // Frame rate
+    };
+    
+    // Build complete animation JSON
+    let animation = {
+        "AN": rootAnimationNode,
+        "SD": symbolDictionary,
+        "MD": metadata
+    };
+    
+    return JSON.stringify(animation);
+}
 
+/**
+ * Group frames by animation prefix
+ * e.g., "walk_001", "walk_002" -> { "walk": ["walk_001", "walk_002"] }
+ */
+function groupFramesByAnimation(rects) {
+    let groups = {};
+    
     for (let i = 0; i < rects.length; i++) {
-        let rect = rects[i];
-        let animName = parseAnimationName(rect.name);
+        let name = rects[i].name;
+        let prefix = extractAnimationPrefix(name);
         
-        // Skip empty names
-        if (!animName) animName = 'default';
+        if (!groups[prefix]) {
+            groups[prefix] = [];
+        }
+        groups[prefix].push({
+            index: i,
+            name: name,
+            rect: rects[i]
+        });
+    }
+    
+    return groups;
+}
 
-        frameNames.push(rect.name);
+/**
+ * Extract animation prefix from frame name
+ * Handles patterns like: walk_001, walk-001, idle0001, etc.
+ */
+function extractAnimationPrefix(frameName) {
+    // Remove file extension if present
+    let name = frameName.replace(/\.[^.]+$/, '');
+    
+    // Try multiple patterns to extract prefix
+    // Pattern: prefix_number (e.g., walk_001, walk-001)
+    let match = name.match(/^(.+?)[_\-]?\d+$/);
+    if (match && match[1]) {
+        return match[1].replace(/[_\-]+$/, '');
+    }
+    
+    // Pattern: prefixNNN (e.g., walk001)
+    match = name.match(/^(.+?)(\d+)$/);
+    if (match && match[1].length > 1) {
+        return match[1];
+    }
+    
+    return name;
+}
 
-        // Initialize animation group if needed
-        if (!animations[animName]) {
-            animations[animName] = {
-                start: i,
-                end: i,
-                frames: []
+/**
+ * Build the root Animation Node (AN) structure
+ */
+function buildRootAnimationNode(animationGroups, rects, framerate) {
+    let layers = [];
+    let symbolIndex = 0;
+    let frameIndex = 0;
+    
+    // Create main layer for the animation sequence
+    let mainLayer = {
+        "LN": "Layer_1",
+        "FR": []
+    };
+    
+    for (let [animName, frames] of Object.entries(animationGroups)) {
+        // Create a frame for each animation
+        let frameData = {
+            "N": animName,
+            "I": frameIndex,
+            "DU": Math.round(1000 / framerate), // Duration in ms
+            "E": []
+        };
+        
+        // Add symbol instance for this animation
+        if (frames.length > 0) {
+            let firstFrame = frames[0];
+            let symbolEntry = {
+                "SI": {
+                    "SN": animName,
+                    "FF": 0,
+                    "ST": "G",
+                    "TRP": {"x": 0, "y": 0},
+                    "LP": "LP",
+                    "MX": [1, 0, 0, 1, 0, 0] // Identity matrix
+                }
             };
+            frameData.E.push(symbolEntry);
         }
         
-        // Update end index and add frame reference
-        animations[animName].end = i;
-        animations[animName].frames.push(i); // Store index, not name
+        mainLayer.FR.push(frameData);
+        frameIndex++;
     }
-
-    // Build sprite references using atlas sprite names
-    let sprites = frameNames.map((name, index) => ({
-        name: name,
-        index: index
-    }));
-
-    // Convert animation indices to names
-    let animationsOutput = {};
-    for (let [animName, animData] of Object.entries(animations)) {
-        animationsOutput[animName] = {
-            start: animData.start,
-            end: animData.end,
-            speed: 12,  // Default FPS
-            name: animName,
-            loop: true,
-            pingpong: false,
-            frames: animData.frames.map(idx => frameNames[idx])
-        };
-    }
-
-    // Build complete animation JSON structure matching BetterTA format
-    let animation = {
-        "ATLAS": {
-            "ANIMATIONS": animationsOutput,
-            "SPRITES": sprites
-        },
-        "meta": {
-            "app": "FunkyPacker",
-            "version": appInfo.version,
-            "image": config.imageFile,
-            "format": config.format,
-            "size": {
-                "w": config.imageWidth,
-                "h": config.imageHeight
-            },
-            "resolution": config.scale || "1",
-            "framerate": 12
+    
+    layers.push(mainLayer);
+    
+    // Build the root timeline
+    return {
+        "N": "animations",
+        "SN": "__BTA_TEMP_SPRITEMAP_PACKED_SYMBOL",
+        "TL": {
+            "L": layers
         }
     };
+}
 
-    return JSON.stringify(animation, null, 2);
+/**
+ * Build the Symbol Dictionary (SD) with symbol definitions
+ * Each symbol represents a frame/animation in the atlas
+ */
+function buildSymbolDictionary(rects) {
+    let symbols = [];
+    
+    // Group by animation prefix
+    let animationGroups = groupFramesByAnimation(rects);
+    
+    for (let [animName, frames] of Object.entries(animationGroups)) {
+        // Create a symbol for this animation with its own timeline
+        let symbol = {
+            "SN": animName,
+            "TL": buildSymbolTimeline(frames, rects)
+        };
+        symbols.push(symbol);
+    }
+    
+    return {
+        "S": symbols
+    };
+}
+
+/**
+ * Build timeline for a symbol (animation)
+ */
+function buildSymbolTimeline(frames, rects) {
+    let layers = [];
+    
+    // Main layer with sprite instances
+    let mainLayer = {
+        "LN": "Layer_1",
+        "FR": []
+    };
+    
+    for (let i = 0; i < frames.length; i++) {
+        let frame = frames[i];
+        let frameData = {
+            "I": i,
+            "DU": 1, // Each frame lasts 1 tick
+            "E": []
+        };
+        
+        // Add atlas sprite instance
+        let spriteInstance = {
+            "ASI": {
+                "MX": [1, 0, 0, 1, 0, 0], // Identity matrix
+                "N": frame.name
+            }
+        };
+        frameData.E.push(spriteInstance);
+        
+        mainLayer.FR.push(frameData);
+    }
+    
+    layers.push(mainLayer);
+    
+    return {
+        "L": layers
+    };
 }
 
 export {getExporterByType, startExporter, startBetterTAExporter};
