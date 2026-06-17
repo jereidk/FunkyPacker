@@ -13,7 +13,10 @@ class SpritesPlayer extends React.Component {
             currentFrame: 0,
             isPlaying: false,
             zoom: 1,
-            fps: 12
+            fps: 12,
+            backgroundColor: '#1a1a2e',
+            showGrid: false,
+            playbackDirection: 'forward'
         };
 
         this.textures = [];
@@ -125,9 +128,16 @@ class SpritesPlayer extends React.Component {
         clearTimeout(this.updateTimer);
 
         if(!skipFrameUpdate){
-            this.currentFrame++;
-            if(this.currentFrame >= this.currentTextures.length) {
-                this.currentFrame = 0;
+            if (this.state.playbackDirection === 'forward') {
+                this.currentFrame++;
+                if(this.currentFrame >= this.currentTextures.length) {
+                    this.currentFrame = 0;
+                }
+            } else {
+                this.currentFrame--;
+                if(this.currentFrame < 0) {
+                    this.currentFrame = this.currentTextures.length - 1;
+                }
             }
         }
         this.renderTexture();
@@ -138,7 +148,14 @@ class SpritesPlayer extends React.Component {
     renderTexture() {
         let ctx = ReactDOM.findDOMNode(this.refs.view).getContext("2d");
 
-        ctx.clearRect(0, 0, this.width, this.height);
+        // Clear with background color
+        ctx.fillStyle = this.state.backgroundColor;
+        ctx.fillRect(0, 0, this.width, this.height);
+
+        // Draw grid if enabled
+        if (this.state.showGrid) {
+            this.drawGrid(ctx);
+        }
 
         let texture = this.currentTextures[this.currentFrame];
         if(!texture) return;
@@ -187,9 +204,31 @@ class SpritesPlayer extends React.Component {
         ctx.drawImage(buffer, 0, 0);
 
         if(this.currentTextures.length > 1) {
-            ctx.fillStyle = "#fff";
-            ctx.font = "12px Arial";
+            ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
+            ctx.font = "bold 12px Arial";
             ctx.fillText(`${this.currentFrame + 1}/${this.currentTextures.length}`, 5, 15);
+        }
+    }
+
+    drawGrid(ctx) {
+        const gridSize = 16;
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+        ctx.lineWidth = 1;
+
+        // Vertical lines
+        for (let x = 0; x <= this.width; x += gridSize) {
+            ctx.beginPath();
+            ctx.moveTo(x, 0);
+            ctx.lineTo(x, this.height);
+            ctx.stroke();
+        }
+
+        // Horizontal lines
+        for (let y = 0; y <= this.height; y += gridSize) {
+            ctx.beginPath();
+            ctx.moveTo(0, y);
+            ctx.lineTo(this.width, y);
+            ctx.stroke();
         }
     }
 
@@ -204,11 +243,14 @@ class SpritesPlayer extends React.Component {
         this.animationTimer = setInterval(() => {
             if(!this.currentTextures.length) return;
 
-            this.setState(prev => {
-                let nextFrame = (prev.currentFrame + 1) % this.currentTextures.length;
-                return { currentFrame: nextFrame };
-            });
+            let nextFrame;
+            if (this.state.playbackDirection === 'forward') {
+                nextFrame = (this.state.currentFrame + 1) % this.currentTextures.length;
+            } else {
+                nextFrame = (this.state.currentFrame - 1 + this.currentTextures.length) % this.currentTextures.length;
+            }
 
+            this.setState({ currentFrame: nextFrame });
             this.renderTexture();
         }, 1000 / this.state.fps);
     }
@@ -228,15 +270,60 @@ class SpritesPlayer extends React.Component {
     }
 
     onFpsChange(e) {
-        this.setState({ fps: parseInt(e.target.value) || 12 });
+        const newFps = parseInt(e.target.value) || 12;
+        this.setState({ fps: newFps });
         if (this.animationTimer) {
             this.stopAnimation();
             this.playAnimation();
         }
     }
 
+    onBackgroundColorChange(e) {
+        const color = e.target.value;
+        this.setState({ backgroundColor: color });
+        this.renderTexture();
+    }
+
+    toggleGrid() {
+        this.setState(prev => ({ showGrid: !prev.showGrid }));
+        this.renderTexture();
+    }
+
+    toggleDirection() {
+        this.setState(prev => ({ 
+            playbackDirection: prev.playbackDirection === 'forward' ? 'reverse' : 'forward' 
+        }));
+    }
+
+    goToFirstFrame() {
+        this.setState({ currentFrame: 0 });
+        this.currentFrame = 0;
+        this.renderTexture();
+    }
+
+    goToLastFrame() {
+        const lastFrame = this.currentTextures.length - 1;
+        this.setState({ currentFrame: lastFrame });
+        this.currentFrame = lastFrame;
+        this.renderTexture();
+    }
+
+    nextFrame() {
+        const next = (this.state.currentFrame + 1) % this.currentTextures.length;
+        this.setState({ currentFrame: next });
+        this.currentFrame = next;
+        this.renderTexture();
+    }
+
+    prevFrame() {
+        const prev = (this.state.currentFrame - 1 + this.currentTextures.length) % this.currentTextures.length;
+        this.setState({ currentFrame: prev });
+        this.currentFrame = prev;
+        this.renderTexture();
+    }
+
     render() {
-        const { currentFrame, isPlaying, zoom, fps } = this.state;
+        const { currentFrame, isPlaying, zoom, fps, backgroundColor, showGrid, playbackDirection } = this.state;
         
         return (
             <div className="player-view-container" ref="playerContainer">
@@ -261,26 +348,66 @@ class SpritesPlayer extends React.Component {
                             overflow: 'auto',
                             background: 'var(--bg-secondary)',
                             borderRadius: '6px',
-                            minHeight: '200px'
+                            minHeight: '200px',
+                            padding: '10px'
                         }}>
-                            <canvas ref='view' style={{
-                                imageRendering: 'pixelated',
-                                background: 'var(--bg-tertiary)',
-                                borderRadius: '4px'
-                            }}/>
-                            <canvas ref='buffer' style={{ display: 'none' }}/>
+                            <div style={{
+                                position: 'relative',
+                                borderRadius: '4px',
+                                overflow: 'hidden',
+                                boxShadow: '0 4px 12px rgba(0,0,0,0.3)'
+                            }}>
+                                <canvas ref='view' style={{
+                                    imageRendering: 'pixelated',
+                                    display: 'block'
+                                }}/>
+                                <canvas ref='buffer' style={{ display: 'none' }}/>
+                            </div>
                         </div>
 
                         <div style={{ 
-                            padding: '10px',
+                            padding: '12px',
                             display: 'flex',
-                            gap: '8px',
+                            gap: '10px',
                             alignItems: 'center',
                             flexWrap: 'wrap',
                             background: 'var(--bg-secondary)',
                             borderRadius: '6px',
                             marginTop: '8px'
                         }}>
+                            {/* Playback Controls */}
+                            <button
+                                onClick={this.goToFirstFrame}
+                                title="Go to first frame"
+                                style={{
+                                    padding: '6px 10px',
+                                    borderRadius: '4px',
+                                    border: 'none',
+                                    background: 'var(--bg-tertiary)',
+                                    color: 'var(--text-primary)',
+                                    cursor: 'pointer',
+                                    fontSize: '14px'
+                                }}
+                            >
+                                ⏮
+                            </button>
+                            
+                            <button
+                                onClick={this.prevFrame}
+                                title="Previous frame"
+                                style={{
+                                    padding: '6px 10px',
+                                    borderRadius: '4px',
+                                    border: 'none',
+                                    background: 'var(--bg-tertiary)',
+                                    color: 'var(--text-primary)',
+                                    cursor: 'pointer',
+                                    fontSize: '14px'
+                                }}
+                            >
+                                ◀
+                            </button>
+
                             <button
                                 onClick={() => {
                                     if (this.animationTimer) {
@@ -291,18 +418,71 @@ class SpritesPlayer extends React.Component {
                                     this.setState(prev => ({ isPlaying: !prev.isPlaying }));
                                 }}
                                 style={{
-                                    padding: '8px 16px',
+                                    padding: '8px 20px',
                                     borderRadius: '6px',
                                     border: 'none',
                                     background: isPlaying ? '#ef4444' : '#22c55e',
                                     color: 'white',
                                     cursor: 'pointer',
-                                    fontWeight: 'bold'
+                                    fontWeight: 'bold',
+                                    fontSize: '13px'
                                 }}
                             >
                                 {isPlaying ? '⏹ Stop' : '▶ Play'}
                             </button>
 
+                            <button
+                                onClick={this.nextFrame}
+                                title="Next frame"
+                                style={{
+                                    padding: '6px 10px',
+                                    borderRadius: '4px',
+                                    border: 'none',
+                                    background: 'var(--bg-tertiary)',
+                                    color: 'var(--text-primary)',
+                                    cursor: 'pointer',
+                                    fontSize: '14px'
+                                }}
+                            >
+                                ▶
+                            </button>
+
+                            <button
+                                onClick={this.goToLastFrame}
+                                title="Go to last frame"
+                                style={{
+                                    padding: '6px 10px',
+                                    borderRadius: '4px',
+                                    border: 'none',
+                                    background: 'var(--bg-tertiary)',
+                                    color: 'var(--text-primary)',
+                                    cursor: 'pointer',
+                                    fontSize: '14px'
+                                }}
+                            >
+                                ⏭
+                            </button>
+
+                            <button
+                                onClick={this.toggleDirection}
+                                title="Toggle playback direction"
+                                style={{
+                                    padding: '6px 10px',
+                                    borderRadius: '4px',
+                                    border: 'none',
+                                    background: playbackDirection === 'reverse' ? 'var(--accent-color)' : 'var(--bg-tertiary)',
+                                    color: 'var(--text-primary)',
+                                    cursor: 'pointer',
+                                    fontSize: '12px'
+                                }}
+                            >
+                                {playbackDirection === 'forward' ? '→' : '←'}
+                            </button>
+
+                            {/* Divider */}
+                            <div style={{width: '1px', height: '24px', background: 'var(--border-color)'}} />
+
+                            {/* FPS Control */}
                             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                                 <label style={{ color: 'var(--text-secondary)', fontSize: '11px' }}>FPS:</label>
                                 <input
@@ -310,9 +490,9 @@ class SpritesPlayer extends React.Component {
                                     value={fps}
                                     onChange={this.onFpsChange}
                                     min="1"
-                                    max="60"
+                                    max="120"
                                     style={{
-                                        width: '50px',
+                                        width: '55px',
                                         padding: '4px',
                                         borderRadius: '4px',
                                         border: '1px solid var(--border-color)',
@@ -323,11 +503,63 @@ class SpritesPlayer extends React.Component {
                                 />
                             </div>
 
-                            <div style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>
-                                Frame: {currentFrame + 1} / {this.currentTextures.length}
+                            {/* Frame Counter */}
+                            <div style={{ 
+                                color: 'var(--text-primary)', 
+                                fontSize: '12px',
+                                fontWeight: 'bold',
+                                background: 'var(--bg-tertiary)',
+                                padding: '4px 10px',
+                                borderRadius: '4px'
+                            }}>
+                                {currentFrame + 1} / {this.currentTextures.length}
                             </div>
 
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginLeft: 'auto' }}>
+                            {/* Divider */}
+                            <div style={{width: '1px', height: '24px', background: 'var(--border-color)'}} />
+
+                            {/* Background Color Picker */}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <label style={{ color: 'var(--text-secondary)', fontSize: '11px' }}>BG:</label>
+                                <input
+                                    type="color"
+                                    value={backgroundColor}
+                                    onChange={(e) => this.onBackgroundColorChange(e)}
+                                    title="Background color"
+                                    style={{
+                                        width: '32px',
+                                        height: '32px',
+                                        padding: '0',
+                                        border: '2px solid var(--border-color)',
+                                        borderRadius: '4px',
+                                        cursor: 'pointer',
+                                        background: 'transparent'
+                                    }}
+                                />
+                            </div>
+
+                            {/* Grid Toggle */}
+                            <button
+                                onClick={this.toggleGrid}
+                                title="Toggle grid"
+                                style={{
+                                    padding: '6px 10px',
+                                    borderRadius: '4px',
+                                    border: 'none',
+                                    background: showGrid ? 'var(--accent-color)' : 'var(--bg-tertiary)',
+                                    color: 'var(--text-primary)',
+                                    cursor: 'pointer',
+                                    fontSize: '11px'
+                                }}
+                            >
+                                # Grid
+                            </button>
+
+                            {/* Spacer */}
+                            <div style={{ flex: 1 }} />
+
+                            {/* Zoom Control */}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                                 <label style={{ color: 'var(--text-secondary)', fontSize: '11px' }}>Zoom:</label>
                                 <input
                                     type="range"
@@ -344,7 +576,7 @@ class SpritesPlayer extends React.Component {
                     </div>
 
                     <div style={{ 
-                        width: '200px',
+                        width: '220px',
                         background: 'var(--bg-secondary)',
                         borderLeft: '1px solid var(--border-color)',
                         padding: '10px',
@@ -371,10 +603,12 @@ class SpritesPlayer extends React.Component {
                                         marginBottom: '2px',
                                         cursor: 'pointer',
                                         borderLeft: currentFrame === i ? '2px solid var(--accent-color)' : '2px solid transparent',
-                                        color: currentFrame === i ? 'var(--text-primary)' : 'var(--text-secondary)'
+                                        color: currentFrame === i ? 'var(--text-primary)' : 'var(--text-secondary)',
+                                        transition: 'all 0.15s ease'
                                     }}
                                     onClick={() => {
                                         this.setState({ currentFrame: i });
+                                        this.currentFrame = i;
                                         this.renderTexture();
                                     }}
                                 >
@@ -383,7 +617,7 @@ class SpritesPlayer extends React.Component {
                             ))}
                             {this.currentTextures.length > 50 && (
                                 <div style={{ color: 'var(--text-secondary)', fontSize: '10px', marginTop: '8px', opacity: 0.6 }}>
-                                    ... y {this.currentTextures.length - 50} más
+                                    ... and {this.currentTextures.length - 50} more
                                 </div>
                             )}
                         </div>
