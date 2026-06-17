@@ -12,6 +12,7 @@ import ImagesList from "./ImagesList.jsx";
 import { cleanPrefix } from '../utils/common';
 import sparrowStore from '../store/sparrowStore';
 import { getAnimationLinker } from '../utils/AnimationLinker';
+import AnimationTreeView from './AnimationTreeView.jsx';
 
 class SheetSplitter extends React.Component {
     constructor(props) {
@@ -48,6 +49,7 @@ class SheetSplitter extends React.Component {
         this.selectTexture = this.selectTexture.bind(this);
         this.selectDataFile = this.selectDataFile.bind(this);
         this.selectAnimationFile = this.selectAnimationFile.bind(this);
+        this.onGenerateAnimationChanged = this.onGenerateAnimationChanged.bind(this);
         this.updateFrames = this.updateFrames.bind(this);
         this.updateView = this.updateView.bind(this);
         this.changeSplitter = this.changeSplitter.bind(this);
@@ -385,12 +387,26 @@ class SheetSplitter extends React.Component {
 
                 if (success) {
                     let refs = animLinker.getReferencedSprites();
-                    console.log('AnimationLinker: Loaded', refs.length, 'sprite references from Animation.json');
+                    let syms = animLinker.getReferencedSymbols();
+                    let orphans = animLinker.validateExistence(this.frames || []);
+                    console.log('AnimationLinker: Loaded', refs.length, 'sprites,', syms.length, 'symbols from Animation.json');
+                    
+                    // Update display with stats
+                    ReactDOM.findDOMNode(this.refs.animationFileName).textContent = 
+                        this.animationFileName + ' ✓ — ' + syms.length + ' symbols, ' + refs.length + ' sprites' +
+                        (orphans.total > 0 ? ', ⚠ ' + orphans.total + ' orphaned' : '');
                 }
             };
 
             reader.readAsDataURL(item);
         }
+    }
+
+    onGenerateAnimationChanged(e) {
+        // Import dynamically to avoid circular dependency
+        import('../store/animationOptionsStore').then(module => {
+            module.setGenerateAnimation(e.target.checked);
+        });
     }
 
     updateFrames() {
@@ -405,6 +421,9 @@ class SheetSplitter extends React.Component {
         }, frames => {
             if(frames) {
                 this.frames = frames;
+                
+                // Force re-render to update AnimationTreeView with new frames
+                this.forceUpdate();
 
                 let canvas = ReactDOM.findDOMNode(this.refs.view);
                 let ctx = canvas.getContext('2d');
@@ -538,8 +557,22 @@ class SheetSplitter extends React.Component {
                                               style={{ marginLeft: '10px', padding: '4px 8px' }}>
                                             &nbsp;
                                         </span>
-                                        <span style={{ marginLeft: '10px', color: '#888', fontSize: '12px' }}>
-                                            Required for preserving animation data during repack
+                                    </td>
+                                </tr>
+                                {/* Generate Animation.json option - shown for BetterTA when no Animation.json loaded */}
+                                <tr ref="generateAnimRow" style={animationFileStyle}>
+                                    <td colSpan="4" style={{ paddingTop: '4px' }}>
+                                        <label style={{ color: '#a8d4ff', fontSize: '12px', cursor: 'pointer' }}>
+                                            <input 
+                                                ref="generateAnimationJson" 
+                                                type="checkbox" 
+                                                style={{ marginRight: '6px' }}
+                                                onChange={this.onGenerateAnimationChanged}
+                                            />
+                                            Generate Animation.json from sprite names (opt-in)
+                                        </label>
+                                        <span style={{ marginLeft: '10px', color: '#888', fontSize: '11px' }}>
+                                            Creates animation from frame sequences (idle_0, idle_1...)
                                         </span>
                                     </td>
                                 </tr>
@@ -615,6 +648,13 @@ class SheetSplitter extends React.Component {
                             </tbody>
                         </table>
                     </div>
+                    
+                    {/* Animation Tree View - shown when Animation.json loaded */}
+                    {isBetterTA && (
+                        <div ref="animationTreeContainer" style={{ marginTop: '10px' }}>
+                            <AnimationTreeView frames={this.frames} />
+                        </div>
+                    )}
 
                     <div className="sheet-splitter-bottom">
                         <table>

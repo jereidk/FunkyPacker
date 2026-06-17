@@ -1073,3 +1073,165 @@ html, body {
     margin: auto;
     margin-right: 300px;
 }
+
+/* AnimationTreeView styles */
+.anim-tree-container {
+    background: #1a2a3a;
+    border: 1px solid #3a5a7a;
+    border-radius: 6px;
+    padding: 10px;
+    max-height: 300px;
+    overflow-y: auto;
+    font-size: 11px;
+    color: #a8d4ff;
+}
+
+.anim-tree-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #3a5a7a;
+}
+
+.anim-tree-badge {
+    background: #2a4a6a;
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-weight: bold;
+}
+
+.anim-tree-meta {
+    color: #888;
+    font-size: 10px;
+}
+
+.anim-tree-warning {
+    color: #f0ad4e;
+    font-size: 10px;
+    margin-left: auto;
+}
+
+.anim-tree-section {
+    margin-bottom: 8px;
+}
+
+.anim-tree-section-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    padding: 4px;
+    background: #2a3a4a;
+    border-radius: 4px;
+    user-select: none;
+}
+
+.anim-tree-section-header:hover {
+    background: #3a4a5a;
+}
+
+.anim-tree-toggle {
+    font-size: 10px;
+    width: 12px;
+}
+
+.anim-tree-icon {
+    font-size: 12px;
+}
+
+.anim-tree-title {
+    font-weight: bold;
+    flex: 1;
+}
+
+.anim-tree-count {
+    color: #888;
+    font-size: 10px;
+}
+
+.anim-tree-content {
+    padding: 6px 0 6px 24px;
+    max-height: 150px;
+    overflow-y: auto;
+}
+
+.anim-tree-frame,
+.anim-tree-symbol,
+.anim-tree-sprite {
+    display: flex;
+    justify-content: space-between;
+    padding: 2px 4px;
+    font-size: 10px;
+}
+
+.anim-tree-frame {
+    color: #a8d4ff;
+}
+
+.anim-tree-frame-name {
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.anim-tree-frame-meta {
+    color: #666;
+    white-space: nowrap;
+}
+
+.anim-tree-symbol.unused {
+    color: #f0ad4e;
+}
+
+.anim-tree-symbol-name {
+    max-width: 180px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.anim-tree-symbol-usage {
+    white-space: nowrap;
+}
+
+.anim-tree-symbol-usage.used {
+    color: #5cb85c;
+}
+
+.anim-tree-symbol-usage.unused {
+    color: #f0ad4e;
+}
+
+.anim-tree-sprite.missing {
+    color: #f0ad4e;
+}
+
+.anim-tree-sprite-name {
+    max-width: 180px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.anim-tree-sprite-status {
+    white-space: nowrap;
+}
+
+.anim-tree-sprite-status.present {
+    color: #5cb85c;
+}
+
+.anim-tree-sprite-status.missing {
+    color: #f0ad4e;
+}
+
+.anim-tree-warning-inline {
+    color: #f0ad4e;
+}
+
+.anim-tree-more {
+    color: #666;
+    font-style: italic;
+    padding: 4px;
+    font-size: 10px;
+}

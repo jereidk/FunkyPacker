@@ -5,6 +5,8 @@ import { getFilterByType } from './filters';
 import I18 from './utils/I18';
 import { startExporter, startBetterTAExporter } from './exporters';
 import { getAnimationLinker } from './utils/AnimationLinker';
+import { generateAnimationJsonString, getAnimationPreview } from './utils/AnimationBuilder';
+import { getOptions as getAnimOptions, getGenerateAnimation } from './store/animationOptionsStore';
 import astcEncoder from './utils/astc/ASTCEncoder';
 //import Tinifyer from 'platform/Tinifyer';
 import Downloader from 'platform/Downloader';
@@ -220,9 +222,12 @@ class APP {
                         content: betterTAOutput.atlas.content
                     });
                     
-                    // If we have a preserved Animation.json, validate and export
                     let animLinker = getAnimationLinker();
+                    let animOptions = getAnimOptions();
+                    
+                    // Determine what to do with Animation.json
                     if (animLinker.isLoaded()) {
+                        // Case 1: Preserve existing Animation.json
                         // Get all sprite names from the packed result
                         let spriteNames = item.data.map(d => d.name || d.originalFile || '');
                         
@@ -259,7 +264,27 @@ class APP {
                             name: betterTAOutput.animation.name,
                             content: animLinker.toJSON()
                         });
+                    } else if (getGenerateAnimation()) {
+                        // Case 2: Generate new Animation.json from sprite names (opt-in)
+                        let animationContent = generateAnimationJsonString(item.data, {
+                            fps: animOptions.fps,
+                            canvasWidth: animOptions.canvasWidth,
+                            canvasHeight: animOptions.canvasHeight,
+                            backgroundColor: animOptions.backgroundColor
+                        });
+                        
+                        // Show preview info
+                        let preview = getAnimationPreview(item.data);
+                        console.log('BetterTA: Generated Animation.json with', preview.length, 'symbols:', 
+                            preview.map(p => p.symbolName + '(' + p.frameCount + 'frames)').join(', '));
+                        
+                        files.push({
+                            name: betterTAOutput.animation.name,
+                            content: animationContent
+                        });
                     }
+                    // Case 3: No Animation.json (user didn't load one and didn't opt-in to generate)
+                    // Don't export any Animation.json
                 } else {
                     // Standard exporter
                     files.push({
