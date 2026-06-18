@@ -106,31 +106,51 @@ class MaxRectsPacker {
     }
 
     placeRect(rect) {
-        const free = this.freeRects[rect.index];
-        this.freeRects.splice(rect.index, 1);
-
-        // Right split
-        if (free.x + free.w > rect.x + rect.w) {
-            this.freeRects.push({
-                x: rect.x + rect.w,
-                y: free.y,
-                w: free.x + free.w - (rect.x + rect.w),
-                h: free.h
-            });
-        }
-
-        // Bottom split
-        if (free.y + free.h > rect.y + rect.h) {
-            this.freeRects.push({
-                x: free.x,
-                y: rect.y + rect.h,
-                w: free.w,
-                h: free.y + free.h - (rect.y + rect.h)
-            });
+        let numRectsToProcess = this.freeRects.length;
+        for (let i = 0; i < numRectsToProcess; i++) {
+            if (this.splitFreeNode(this.freeRects[i], rect)) {
+                this.freeRects.splice(i, 1);
+                i--;
+                numRectsToProcess--;
+            }
         }
 
         this.pruneFreeRects();
         this.usedRects.push(rect);
+    }
+
+    splitFreeNode(free, used) {
+        // Test if the rectangles even intersect
+        if (used.x >= free.x + free.w || used.x + used.w <= free.x ||
+            used.y >= free.y + free.h || used.y + used.h <= free.y) {
+            return false;
+        }
+
+        // Split vertically
+        if (used.x < free.x + free.w && used.x + used.w > free.x) {
+            // New node at top side
+            if (used.y > free.y && used.y < free.y + free.h) {
+                this.freeRects.push({ ...free, h: used.y - free.y });
+            }
+            // New node at bottom side
+            if (used.y + used.h < free.y + free.h) {
+                this.freeRects.push({ ...free, y: used.y + used.h, h: free.y + free.h - (used.y + used.h) });
+            }
+        }
+
+        // Split horizontally
+        if (used.y < free.y + free.h && used.y + used.h > free.y) {
+            // New node at left side
+            if (used.x > free.x && used.x < free.x + free.w) {
+                this.freeRects.push({ ...free, w: used.x - free.x });
+            }
+            // New node at right side
+            if (used.x + used.w < free.x + free.w) {
+                this.freeRects.push({ ...free, x: used.x + used.w, w: free.x + free.w - (used.x + used.w) });
+            }
+        }
+
+        return true;
     }
 
     pruneFreeRects() {

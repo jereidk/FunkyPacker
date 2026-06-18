@@ -229,25 +229,22 @@ class SpritesPlayer extends React.Component {
         bufferCtx.clearRect(0, 0, w, h);
 
         if(texture.config.rotated) {
-            // When rotated, frame.w and frame.h are swapped in the atlas
-            // spriteSourceSize still contains original dimensions
             bufferCtx.save();
 
-            // Translate to center of original sprite space
-            const centerX = texture.config.spriteSourceSize.x + texture.config.spriteSourceSize.w / 2;
-            const centerY = texture.config.spriteSourceSize.y + texture.config.spriteSourceSize.h / 2;
-            bufferCtx.translate(centerX, centerY);
+            // TextureRenderer.js stores rotated sprites 90 degrees clockwise.
+            // Atlas width = original height (frame.h), Atlas height = original width (frame.w)
+            // To un-rotate:
+            // 1. Translate to the bottom-left of the original sprite's space (within its trimmed bounds)
+            //    The offset is frame.h because that's the original height
+            bufferCtx.translate(texture.config.spriteSourceSize.x, texture.config.spriteSourceSize.y + texture.config.frame.h);
             bufferCtx.rotate(-Math.PI / 2);
 
-            // Draw the rotated sprite from atlas to buffer
-            // Source: frame from atlas (width=frame.h, height=frame.w due to rotation)
-            // Dest: center at origin, using original dimensions (swapped)
             bufferCtx.drawImage(
                 texture.baseTexture,
                 texture.config.frame.x, texture.config.frame.y,
-                texture.config.frame.h, texture.config.frame.w,
-                -texture.config.spriteSourceSize.h / 2, -texture.config.spriteSourceSize.w / 2,
-                texture.config.spriteSourceSize.h, texture.config.spriteSourceSize.w
+                texture.config.frame.h, texture.config.frame.w, // Source is h x w in atlas
+                0, 0,
+                texture.config.frame.h, texture.config.frame.w
             );
 
             bufferCtx.restore();

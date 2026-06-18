@@ -54,15 +54,15 @@ class JavaScriptASTCEncoder {
             blockData[0] = 0xFC;
             blockData[1] = 0x5D;
             
-            // RGBA values as 16-bit (8-bit values with 8 fractional bits)
+            // RGBA values as 16-bit. Replicating bits for full precision range.
             blockData[2] = minR;
-            blockData[3] = 0;
+            blockData[3] = minR;
             blockData[4] = minG;
-            blockData[5] = 0;
+            blockData[5] = minG;
             blockData[6] = minB;
-            blockData[7] = 0;
+            blockData[7] = minB;
             blockData[8] = minA;
-            blockData[9] = 0;
+            blockData[9] = minA;
             
             // Void RGBA color (remaining bytes)
             for (let i = 10; i < 16; i++) {
@@ -72,6 +72,10 @@ class JavaScriptASTCEncoder {
             return blockData;
         }
         
+        // NOTE: This "direct encoding" is a placeholder and NOT compliant with ASTC ISE spec.
+        // GPU support for this custom block format is unlikely.
+        // Proper ASTC encoding requires bit-packed Weight/Endpoint data.
+
         // Non-uniform block - use direct encoding with endpoints
         // Calculate interpolated endpoints
         const r1 = minR, g1 = minG, b1 = minB, a1 = minA;
