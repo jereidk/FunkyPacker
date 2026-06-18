@@ -65,7 +65,10 @@ class SpritesPlayer extends React.Component {
                 this.setup();
             } else if (startChanged) {
                 // Just starting, but data is the same
-                this.forceUpdate();
+                // Need to render the current frame, not just forceUpdate
+                this.setState({ currentFrame: 0 }, () => {
+                    this.renderCurrentFrame();
+                });
             }
         } else {
             // Stop animation and sync isPlaying state

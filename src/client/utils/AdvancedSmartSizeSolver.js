@@ -106,42 +106,99 @@ class MaxRectsPacker {
     }
 
     placeRect(rect) {
-        const free = this.freeRects[rect.index];
+        // Remove the free rect that was used for placement
         this.freeRects.splice(rect.index, 1);
 
-        // Right split
-        if (free.x + free.w > rect.x + rect.w) {
-            this.freeRects.push({
-                x: rect.x + rect.w,
-                y: free.y,
-                w: free.x + free.w - (rect.x + rect.w),
-                h: free.h
-            });
+        // The placed rectangle's bounding box
+        const pr = {
+            x: rect.x,
+            y: rect.y,
+            w: rect.w,
+            h: rect.h
+        };
+        const prRight = pr.x + pr.w;
+        const prBottom = pr.y + pr.h;
+
+        // IMPORTANT: According to MaxRects algorithm (Jukka Jylänki),
+        // we must split ALL free rects that intersect with the placed rectangle,
+        // not just the one we used for placement.
+        // This prevents ghost-free-rects that would cause overlapping placements.
+        
+        const newFreeRects = [];
+
+        for (const free of this.freeRects) {
+            const frRight = free.x + free.w;
+            const frBottom = free.y + free.h;
+
+            // Check if this free rect intersects with the placed rect
+            if (pr.x >= frRight || prRight <= free.x ||
+                pr.y >= frBottom || prBottom <= free.y) {
+                // No intersection - keep this free rect as-is
+                newFreeRects.push(free);
+                continue;
+            }
+
+            // There IS an intersection - split this free rect against the placed rect
+            // This creates up to 4 new free rects (like Guillotine)
+            
+            // Split LEFT: area to the left of placed rect
+            if (free.x < pr.x) {
+                newFreeRects.push({
+                    x: free.x,
+                    y: free.y,
+                    w: pr.x - free.x,
+                    h: free.h
+                });
+            }
+
+            // Split RIGHT: area to the right of placed rect
+            if (frRight > prRight) {
+                newFreeRects.push({
+                    x: prRight,
+                    y: free.y,
+                    w: frRight - prRight,
+                    h: free.h
+                });
+            }
+
+            // Split TOP: area above placed rect
+            if (free.y < pr.y) {
+                newFreeRects.push({
+                    x: free.x,
+                    y: free.y,
+                    w: free.w,
+                    h: pr.y - free.y
+                });
+            }
+
+            // Split BOTTOM: area below placed rect
+            if (frBottom > prBottom) {
+                newFreeRects.push({
+                    x: free.x,
+                    y: prBottom,
+                    w: free.w,
+                    h: frBottom - prBottom
+                });
+            }
         }
 
-        // Bottom split
-        if (free.y + free.h > rect.y + rect.h) {
-            this.freeRects.push({
-                x: free.x,
-                y: rect.y + rect.h,
-                w: free.w,
-                h: free.y + free.h - (rect.y + rect.h)
-            });
-        }
+        // Replace free rects with the split results
+        this.freeRects = newFreeRects;
 
+        // Prune any remaining free rects that are contained within others
         this.pruneFreeRects();
+
+        // Add the placed rect to used rects
         this.usedRects.push(rect);
     }
 
     pruneFreeRects() {
-        for (let i = 0; i < this.freeRects.length; i++) {
-            for (let j = i + 1; j < this.freeRects.length; j++) {
+        for (let i = this.freeRects.length - 1; i >= 0; i--) {
+            for (let j = this.freeRects.length - 1; j > i; j--) {
                 if (this.containsRect(this.freeRects[i], this.freeRects[j])) {
                     this.freeRects.splice(j, 1);
-                    j--;
                 } else if (this.containsRect(this.freeRects[j], this.freeRects[i])) {
                     this.freeRects.splice(i, 1);
-                    i--;
                     break;
                 }
             }
@@ -578,16 +635,18 @@ class AdvancedSmartSizeSolver {
             ? Object.values(AdvancedSmartSizeSolver.ALGORITHM).filter(a => a !== AdvancedSmartSizeSolver.ALGORITHM.BEST)
             : [requestedAlgorithm];
 
+        // Initial exploration: try each width with a large height (maxSizeLimit) to find best packing
         for (const width of widths) {
             for (const algo of algorithms) {
-                const result = this.packWithAlgorithm(sprites, width, algo, padding, borderPadding, maxSizeLimit);
+                // Use maxSizeLimit as height for exploration - algorithm will use only what it needs
+                const result = this.packWithAlgorithm(sprites, width, maxSizeLimit, algo, padding, borderPadding, maxSizeLimit);
                 
                 if (result.success && result.efficiency > 0) {
                     if (!bestOverall || this.isBetterResult(result, bestOverall)) {
                         bestOverall = {
                             ...result,
                             width: width,
-                            height: result.height,
+                            height: result.usedHeight,  // Track actual height used
                             algorithm: algo
                         };
                     }
@@ -607,18 +666,20 @@ class AdvancedSmartSizeSolver {
         }
 
         // Apply border padding to final result
-        bestOverall.width += borderPadding * 2;
-        bestOverall.height += borderPadding * 2;
+        const finalWidth = bestOverall.width + borderPadding * 2;
+        const finalHeight = bestOverall.height + borderPadding * 2;
 
-        // Repack with correct positions
-        const finalResult = this.packWithAlgorithm(sprites, bestOverall.width, bestOverall.algorithm, padding, borderPadding, maxSizeLimit);
+        // NOTE: We use the exploration result directly (bestOverall) rather than repacking.
+        // The exploration packWithAlgorithm already computed correct rect positions
+        // using maxSizeLimit as height. Adding borderPadding to positions is done inside
+        // packWithAlgorithm when creating packed rects.
 
         return {
-            width: finalResult.width,
-            height: finalResult.height,
-            efficiency: finalResult.efficiency,
+            width: finalWidth,
+            height: finalHeight,
+            efficiency: bestOverall.efficiency,
             algorithm: bestOverall.algorithm,
-            rects: finalResult.rects
+            rects: bestOverall.rects
         };
     }
 
@@ -656,9 +717,10 @@ class AdvancedSmartSizeSolver {
             .sort((a, b) => a - b);
     }
 
-    static packWithAlgorithm(sprites, width, algorithm, padding, borderPadding, maxSizeLimit) {
+    static packWithAlgorithm(sprites, width, height, algorithm, padding, borderPadding, maxSizeLimit) {
+        // Calculate inner dimensions (excluding border padding)
         const paddedWidth = width - borderPadding * 2;
-        const paddedHeight = maxSizeLimit - borderPadding * 2;
+        const paddedHeight = height - borderPadding * 2;
 
         let packer;
         let method = 'BestShortSideFit';

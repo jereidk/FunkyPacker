@@ -16,6 +16,10 @@ import { smartSortImages, cleanPrefix } from './common';
 /**
  * Group frames by prefix using cleanPrefix (same as Sparrow.js)
  * Maintains sort order using smartSortImages
+ * 
+ * Special handling for numeric-only names: when all names are purely numeric
+ * (like "0", "1", "2", ... or "000", "001", ...), they are kept as separate
+ * groups rather than being combined into a single group with empty prefix.
  */
 function groupFramesByPrefix(rects) {
     let groups = new Map();
@@ -25,13 +29,26 @@ function groupFramesByPrefix(rects) {
         return smartSortImages(a.name, b.name);
     });
     
+    // Check if all names are purely numeric (no prefix case)
+    const allNumeric = sortedRects.every(rect => {
+        const name = (rect.name || rect.originalFile || '').replace(/\.[^.]+$/, '');
+        return /^\d+$/.test(name);
+    });
+    
     for (let rect of sortedRects) {
         let name = rect.name || rect.originalFile || '';
         // Remove extension if present
         name = name.replace(/\.[^.]+$/, '');
         
-        // Use cleanPrefix for consistent grouping (same as Sparrow.js)
-        let prefix = cleanPrefix(name);
+        let prefix;
+        if (allNumeric) {
+            // For purely numeric names, use the full name as the prefix
+            // This creates one group per frame, preserving the numeric sequence
+            prefix = name;
+        } else {
+            // Use cleanPrefix for normal names (same as Sparrow.js)
+            prefix = cleanPrefix(name);
+        }
         
         if (!groups.has(prefix)) {
             groups.set(prefix, []);

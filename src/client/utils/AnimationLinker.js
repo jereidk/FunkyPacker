@@ -154,6 +154,22 @@ class AnimationLinker {
     }
 
     /**
+     * Get symbol reference counts - returns actual occurrence count per symbol
+     * Returns: Map<symbolName, count> where count is the real number of SI references
+     */
+    getSymbolReferenceCounts() {
+        const counts = new Map();
+        for (let [name, refs] of this.spriteReferences) {
+            // Count only SI (Symbol Instance) references
+            const siCount = refs.filter(r => r.type === 'SI').length;
+            if (siCount > 0) {
+                counts.set(name, siCount);
+            }
+        }
+        return counts;
+    }
+
+    /**
      * Get unreferenced sprites (sprites in atlas but not used in animation)
      */
     getUnreferencedSprites(allSprites) {

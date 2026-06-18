@@ -337,6 +337,24 @@ class ASTCConverter extends React.Component {
                             <div style={styles.result}>
                                 <h4 style={styles.resultTitle}>✅ Conversión Completada</h4>
                                 
+                                {/* ⚠️ IMPORTANT WARNING */}
+                                <div style={{
+                                    ...styles.resultInfo,
+                                    borderLeft: '4px solid #f39c12',
+                                    backgroundColor: '#fff3cd',
+                                    padding: '10px',
+                                    marginBottom: '10px',
+                                    borderRadius: '4px'
+                                }}>
+                                    <p style={{margin: 0, color: '#856404', fontSize: '11px'}}>
+                                        ⚠️ <strong>EXPERIMENTAL:</strong> Este encoder ASTC es una 
+                                        implementación de referencia, <strong>NO produce archivos ASTC 
+                                        válidos para uso en producción</strong>. Para producción, se 
+                                        requiere integrar <code>astcenc</code> (ARM) compilado a 
+                                        WebAssembly.
+                                    </p>
+                                </div>
+                                
                                 <div style={styles.resultInfo}>
                                     <p><strong>Archivo:</strong> {this.state.result.name}</p>
                                     <p><strong>Formato:</strong> {this.state.result.format}</p>
