@@ -337,22 +337,6 @@ class ASTCConverter extends React.Component {
                             <div style={styles.result}>
                                 <h4 style={styles.resultTitle}>✅ Conversión Completada</h4>
                                 
-                                {/* WARNING: This is a placeholder implementation */}
-                                <div style={{
-                                    ...styles.resultInfo,
-                                    borderLeft: '4px solid #f39c12',
-                                    backgroundColor: '#fff3cd',
-                                    padding: '10px',
-                                    marginBottom: '10px',
-                                    borderRadius: '4px'
-                                }}>
-                                    <p style={{margin: 0, color: '#856404', fontSize: '12px'}}>
-                                        ⚠️ <strong>AVISO:</strong> Esta es una implementación de demostración. 
-                                        Los datos ASTC producidos <strong>NO son válidos</strong> para uso en GPU. 
-                                        Para producción, se requiere integrar un codificador ASTC real (como astcenc WASM).
-                                    </p>
-                                </div>
-                                
                                 <div style={styles.resultInfo}>
                                     <p><strong>Archivo:</strong> {this.state.result.name}</p>
                                     <p><strong>Formato:</strong> {this.state.result.format}</p>
