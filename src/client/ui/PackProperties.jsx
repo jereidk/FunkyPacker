@@ -16,6 +16,7 @@ import {Observer, GLOBAL_EVENT} from '../Observer';
 
 import FileSystem from 'platform/FileSystem';
 import sparrowStore from '../store/sparrowStore';
+import SmartSizePreview from './SmartSizePreview.jsx';
 
 const STORAGE_OPTIONS_KEY = "pack-options";
 const STORAGE_CUSTOM_EXPORTER_KEY = "custom-exporter";
@@ -294,6 +295,9 @@ class PackProperties extends React.Component {
 
         return (
             <div className="props-list back-white">
+                {/* Smart Size Preview - Real-time solver feedback */}
+                <SmartSizePreview />
+                
                 <div className="pack-properties-containter">
                     <table>
                         <tbody>
