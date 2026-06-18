@@ -1,97 +1,237 @@
 /**
- * BasisEncoder - WebAssembly wrapper for Basis Universal compression
+ * BasisEncoder - Real Basis Universal WebAssembly encoder for FunkyPacker
  * 
- * Provides real texture compression using the Basis Universal encoder
- * compiled to WebAssembly from BinomialLLC/basis_universal
+ * Uses the official pre-built Basis Universal encoder from BinomialLLC/basis_universal
+ * (webgl/encoder/build/) which provides genuine texture compression.
  * 
- * Supported output formats:
- * - UASTC: High quality, larger file size
- * - ETC1S: Lower quality, smaller file size
+ * IMPORTANT: The glue code (basis_encoder.js) and WASM binary are loaded via fetch()
+ * from the resources directory to avoid webpack bundling issues with the Emscripten
+ * generated code that contains Node.js specific requires.
  * 
- * For ASTC output, use the transcoder (basis_transcoder.js) to convert
- * UASTC/ETC1S to ASTC format.
+ * Output format: KTX2 container with UASTC/ETC1S/Basis compressed data.
  * 
  * Reference: https://github.com/BinomialLLC/basis_universal
  */
 
+// Block size to ASTC format mapping
+const BLOCK_FORMAT_MAP = {
+    '4x4': 'cTFASTC_4x4',
+    '5x4': 'cTFASTC_LDR_5x4_RGBA',
+    '5x5': 'cTFASTC_LDR_5x5_RGBA',
+    '6x5': 'cTFASTC_LDR_6x5_RGBA',
+    '6x6': 'cTFASTC_LDR_6x6_RGBA',
+    '8x5': 'cTFASTC_LDR_8x5_RGBA',
+    '8x6': 'cTFASTC_LDR_8x6_RGBA',
+    '10x5': 'cTFASTC_LDR_10x5_RGBA',
+    '10x6': 'cTFASTC_LDR_10x6_RGBA',
+    '8x8': 'cTFASTC_LDR_8x8_RGBA',
+    '10x8': 'cTFASTC_LDR_10x8_RGBA',
+    '10x10': 'cTFASTC_LDR_10x10_RGBA',
+    '12x10': 'cTFASTC_LDR_12x10_RGBA',
+    '12x12': 'cTFASTC_LDR_12x12_RGBA',
+};
+
 /**
  * BasisEncoder singleton class
+ * Provides real texture compression via WebAssembly
  */
 class BasisEncoder {
     constructor() {
-        this.module = null;
-        this.encoder = null;
+        this.module = null;       // Emscripten Module instance
+        this.encoder = null;     // BasisEncoder C++ wrapper
         this.ready = false;
-        this.wasmBinary = null;
+        this.initializing = false;
+        this.initPromise = null;
+        this.baseUrl = '';       // Base URL for loading resources
     }
 
     /**
-     * Load the WASM module
+     * Set the base URL for loading WASM resources
+     */
+    setBaseUrl(url) {
+        this.baseUrl = url;
+    }
+
+    /**
+     * Initialize the WASM module - loads and instantiates basis_encoder.wasm
      * @returns {Promise<boolean>}
      */
     async initialize() {
         if (this.ready) return true;
+        if (this.initializing) return this.initPromise;
 
+        this.initializing = true;
+        this.initPromise = this._doInitialize();
+        return this.initPromise;
+    }
+
+    async _doInitialize() {
         try {
-            // Load the WASM binary
-            const wasmUrl = './resources/basis_encoder.wasm';
-            const response = await fetch(wasmUrl);
-            if (!response.ok) {
-                throw new Error(`Failed to fetch WASM: ${response.status}`);
-            }
-            this.wasmBinary = await response.arrayBuffer();
-
-            // Note: Full Basis Universal initialization requires the full module
-            // For production use, consider using the pre-built basis_encoder.js glue code
-            // from https://github.com/BinomialLLC/basis_universal
+            console.log('[BasisEncoder] Loading Basis Universal WASM encoder...');
             
-            // For now, we'll use a fallback to JavaScript encoding
-            console.log('[BasisEncoder] WASM binary loaded, using JavaScript fallback');
+            // Determine base URL for resources
+            const baseUrl = this.baseUrl || this._getBaseUrl();
+            
+            // Load the WASM binary first
+            const wasmResponse = await fetch(baseUrl + 'basis_encoder.wasm');
+            if (!wasmResponse.ok) {
+                throw new Error(`Failed to fetch basis_encoder.wasm: ${wasmResponse.status}`);
+            }
+            const wasmBinary = await wasmResponse.arrayBuffer();
+
+            // Load the glue code
+            const jsResponse = await fetch(baseUrl + 'basis_encoder.js');
+            if (!jsResponse.ok) {
+                throw new Error(`Failed to fetch basis_encoder.js: ${jsResponse.status}`);
+            }
+            const jsCode = await jsResponse.text();
+
+            // Execute the glue code in a function scope
+            // The glue code is an IIFE that assigns BASIS to the local scope
+            const basisFactory = eval(jsCode);
+            
+            // Create the Basis module with the WASM binary pre-loaded
+            this.module = await basisFactory({
+                wasmBinary: wasmBinary,
+                locateFile: () => '' // We pre-loaded the binary
+            });
+
+            // Initialize the Basis encoder library
+            if (this.module.initializeBasis) {
+                this.module.initializeBasis();
+            }
+
             this.ready = true;
+            console.log('[BasisEncoder] WASM encoder loaded successfully');
             return true;
         } catch (error) {
-            console.error('[BasisEncoder] Failed to initialize:', error);
+            console.error('[BasisEncoder] Failed to load WASM encoder:', error);
+            this.initializing = false;
             return false;
         }
     }
 
-    /**
-     * Encode image data to compressed format
-     * @param {ImageData} imageData - RGBA image data
-     * @param {Object} options - Encoding options
-     * @returns {Promise<Uint8Array>} - Compressed data
-     */
-    async encode(imageData, options = {}) {
-        if (!this.ready) {
-            await this.initialize();
+    _getBaseUrl() {
+        // Try to determine the base URL from the current script or document
+        if (typeof document !== 'undefined') {
+            const scripts = document.getElementsByTagName('script');
+            for (let i = scripts.length - 1; i >= 0; i--) {
+                const src = scripts[i].src;
+                if (src && src.includes('index.js')) {
+                    // Extract base path from the script URL
+                    return src.replace(/\/static\/js\/index\.js.*$/, '/');
+                }
+            }
+            // Fallback to root
+            return './';
         }
-
-        const {
-            format = 'uastc',  // 'uastc' or 'etc1s'
-            quality = 128,      // 1-255, higher = better quality
-            blockSize = '4x4'   // Only for ASTC transcoding later
-        } = options;
-
-        console.log(`[BasisEncoder] Encoding ${imageData.width}x${imageData.height} to ${format}`);
-
-        // For now, fall back to the JavaScript ASTC encoder
-        // A full Basis Universal integration would:
-        // 1. Create a BasisFile object
-        // 2. Set source image data
-        // 3. Call compress()
-        // 4. Get transcoded output
-        
-        // For production, use the full basis_transcoder.js from:
-        // https://github.com/BinomialLLC/basis_universal/tree/master/webgl/ktx2_parse_test
-        
-        return null; // Signal that JS fallback should be used
+        return './';
     }
 
     /**
-     * Get supported compression formats
+     * Encode RGBA image data to KTX2 compressed format
+     * 
+     * Compatible interface with ASTCEncoder.encode(imageData, options)
+     * 
+     * @param {ImageData|Uint8Array} imageData - RGBA image data (width*height*4 bytes)
+     * @param {Object} options - Encoding options
+     * @param {string} options.blockSize - Block size e.g. '4x4' (default: '4x4')
+     * @param {number} options.quality - Quality level 1-255 (default: 128)
+     * @param {boolean} options.sRGB - Use sRGB colorspace (default: true)
+     * @returns {Promise<{ktx2: Uint8Array, size: number, width: number, height: number, blockSize: string}>}
      */
-    getSupportedFormats() {
-        return ['uastc', 'etc1s'];
+    async encode(imageData, options = {}) {
+        // Handle ImageData format (extract raw RGBA data)
+        let rawData;
+        let width, height;
+        
+        if (imageData.data && imageData.width !== undefined) {
+            // ImageData format
+            rawData = imageData.data; // Uint8Array of RGBA pixels
+            width = imageData.width;
+            height = imageData.height;
+        } else {
+            throw new Error('BasisEncoder.encode: ImageData required with .data and .width properties');
+        }
+
+        if (options.width) width = options.width;
+        if (options.height) height = options.height;
+
+        const {
+            blockSize = '4x4',
+            quality = 128,
+            sRGB = true,
+        } = options;
+
+        console.log(`[BasisEncoder] Encoding ${width}x${height} to ASTC ${blockSize}, quality=${quality}`);
+
+        try {
+            const Module = this.module;
+            
+            // Create the encoder instance
+            const encoder = new Module.BasisEncoder();
+            this.encoder = encoder;
+
+            // Set source image data (RGBA, 4 bytes per pixel)
+            const imageType = Module.ldr_image_type.cRGBAImage.value;
+            encoder.setSliceSourceImage(0, rawData, width, height, imageType);
+
+            // Set output format to ASTC
+            const formatName = BLOCK_FORMAT_MAP[blockSize];
+            if (!formatName) {
+                throw new Error(`Unsupported block size: ${blockSize}`);
+            }
+            const formatValue = Module.basis_tex_format[formatName]?.value;
+            if (formatValue === undefined) {
+                throw new Error(`Format ${formatName} not available in this build`);
+            }
+            encoder.setFormatMode(formatValue);
+
+            // Configure KTX2 output
+            encoder.setCreateKTX2File(true);
+            encoder.setKTX2UASTCSupercompression(true);
+            
+            // Colorspace settings
+            encoder.setPerceptual(sRGB);
+            encoder.setKTX2AndBasisSRGBTransferFunc(sRGB);
+            encoder.setMipSRGB(sRGB);
+
+            // Quality level
+            encoder.setQualityLevel(quality);
+
+            // Encode!
+            const success = encoder.encode();
+            
+            if (!success) {
+                throw new Error('BasisEncoder: encode() returned false');
+            }
+
+            // Get the KTX2 output
+            const ktx2Size = encoder.getKTX2FileSize();
+            const ktx2Data = encoder.getKTX2File();
+
+            console.log(`[BasisEncoder] Encoded ${ktx2Size} bytes`);
+
+            // Clean up encoder
+            encoder.delete();
+            this.encoder = null;
+
+            return {
+                ktx2: ktx2Data,
+                size: ktx2Size,
+                width,
+                height,
+                blockSize,
+                format: `ASTC ${blockSize}`,
+            };
+        } catch (error) {
+            console.error('[BasisEncoder] Encode error:', error);
+            if (this.encoder) {
+                try { this.encoder.delete(); } catch (_) {}
+                this.encoder = null;
+            }
+            throw error;
+        }
     }
 
     /**
@@ -100,9 +240,16 @@ class BasisEncoder {
     isReady() {
         return this.ready;
     }
+
+    /**
+     * Get supported block sizes
+     */
+    getSupportedBlockSizes() {
+        return Object.keys(BLOCK_FORMAT_MAP);
+    }
 }
 
-// Export singleton
+// Export singleton instance
 const basisEncoder = new BasisEncoder();
 
 export default basisEncoder;

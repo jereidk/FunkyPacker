@@ -39,7 +39,9 @@ if (prod) {
         outputDir = '../electron/www/';
     }
 
-    plugins.push(new CopyWebpackPlugin([{from: 'src/client/resources', to: outputDir}]));
+    plugins.push(new CopyWebpackPlugin([
+        {from: 'src/client/resources', to: outputDir}
+    ]));
 
     devtool = false;
     output = outputDir + 'static/js/index.js';
@@ -47,7 +49,9 @@ if (prod) {
 }
 else {
     entry.push('webpack-dev-server/client?http://localhost:4000');
-    plugins.push(new CopyWebpackPlugin([{from: 'src/client/resources', to: './'}]));
+    plugins.push(new CopyWebpackPlugin([
+        {from: 'src/client/resources', to: './'}
+    ]));
 }
 
 let config = {
@@ -85,6 +89,10 @@ let config = {
                 use: [{loader: 'dom'}]
             }
         ]
+    },
+    // Enable WebAssembly support for Basis Universal encoder
+    experiments: {
+        asyncWebAssembly: true,
     },
     optimization: {
         minimize: prod,

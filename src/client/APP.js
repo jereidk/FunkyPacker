@@ -7,7 +7,10 @@ import { startExporter, startBetterTAExporter } from './exporters';
 import { getAnimationLinker } from './utils/AnimationLinker';
 import { generateAnimationJsonString, getAnimationPreview } from './utils/AnimationBuilder';
 import { getOptions as getAnimOptions, getGenerateAnimation } from './store/animationOptionsStore';
-import astcEncoder from './utils/astc/ASTCEncoder';
+// ASTC real: Use BasisEncoder (Basis Universal WASM) instead of ASTCEncoder (simulated)
+import basisEncoder from './utils/astc/BasisEncoder';
+// Keep ASTCEncoder as fallback
+import astcEncoderFallback from './utils/astc/ASTCEncoder';
 //import Tinifyer from 'platform/Tinifyer';
 import Downloader from 'platform/Downloader';
 
@@ -137,7 +140,7 @@ class APP {
             let astcMeta = null;
 
             if (this.packOptions.textureFormat === 'astc') {
-                // Generate ASTC texture
+                // Generate ASTC texture using Basis Universal WASM encoder
                 const canvas = filter.apply(buffer);
                 const ctx = canvas.getContext('2d');
                 const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
@@ -149,8 +152,30 @@ class APP {
                     colorProfile: this.packOptions.astcColorProfile || 'ldr-rgba'
                 };
 
-                // Encode to ASTC
-                const astcData = await astcEncoder.encode(imgData, astcOptions);
+                // Try real Basis Universal encoder first
+                let astcData;
+                try {
+                    if (basisEncoder.isReady()) {
+                        console.log('[APP] Using Basis Universal WASM encoder');
+                        const result = await basisEncoder.encode(imgData, astcOptions);
+                        astcData = result.ktx2; // KTX2 container with ASTC data
+                    } else {
+                        // Initialize encoder if needed
+                        console.log('[APP] Initializing Basis Universal encoder...');
+                        const ready = await basisEncoder.initialize();
+                        if (ready) {
+                            console.log('[APP] Using Basis Universal WASM encoder');
+                            const result = await basisEncoder.encode(imgData, astcOptions);
+                            astcData = result.ktx2;
+                        } else {
+                            throw new Error('BasisEncoder init failed');
+                        }
+                    }
+                } catch (e) {
+                    // Fallback to simulated encoder
+                    console.warn('[APP] Basis encoder failed, using fallback:', e.message);
+                    astcData = await astcEncoderFallback.encode(imgData, astcOptions);
+                }
 
                 // Store ASTC data as binary (will be converted to base64)
                 imageData = astcData;
