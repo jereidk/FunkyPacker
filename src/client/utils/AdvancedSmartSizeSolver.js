@@ -106,9 +106,6 @@ class MaxRectsPacker {
     }
 
     placeRect(rect) {
-        // Remove the free rect that was used for placement
-        this.freeRects.splice(rect.index, 1);
-
         // The placed rectangle's bounding box
         const pr = {
             x: rect.x,
@@ -121,8 +118,10 @@ class MaxRectsPacker {
 
         // IMPORTANT: According to MaxRects algorithm (Jukka Jylänki),
         // we must split ALL free rects that intersect with the placed rectangle,
-        // not just the one we used for placement.
-        // This prevents ghost-free-rects that would cause overlapping placements.
+        // including the one we used for placement.
+        // DO NOT remove the used free rect before the split loop!
+        // The split loop will naturally exclude the used rect's original area
+        // by generating splits only for non-overlapping parts.
         
         const newFreeRects = [];
 
@@ -140,6 +139,7 @@ class MaxRectsPacker {
 
             // There IS an intersection - split this free rect against the placed rect
             // This creates up to 4 new free rects (like Guillotine)
+            // The overlapping part is simply not included in any split
             
             // Split LEFT: area to the left of placed rect
             if (free.x < pr.x) {
@@ -180,6 +180,7 @@ class MaxRectsPacker {
                     h: frBottom - prBottom
                 });
             }
+            // NOTE: The overlapping area is NOT added - it becomes occupied space
         }
 
         // Replace free rects with the split results

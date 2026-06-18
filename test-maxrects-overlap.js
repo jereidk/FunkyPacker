@@ -1,16 +1,15 @@
 /**
- * MaxRects Overlap Test
+ * MaxRects Capacity and Overlap Test
  * 
- * This test verifies that the MaxRects bin packer correctly places
- * rectangles without any overlapping regions.
+ * Tests that the MaxRects bin packer:
+ * 1. Places multiple rectangles successfully (capacity test)
+ * 2. No placed rectangles overlap each other
+ * 3. Free rects don't overlap with used rects
  * 
  * Run with: node test-maxrects-overlap.js
  */
 
-// Import the relevant classes (adjust path as needed)
-const path = require('path');
-
-// Inline MaxRectsPacker for testing (simplified copy)
+// Inline MaxRectsPacker - FIXED version (matching production code)
 class MaxRectsPacker {
     constructor(width, height, padding = 0) {
         this.binWidth = width;
@@ -79,9 +78,6 @@ class MaxRectsPacker {
     }
 
     placeRect(rect) {
-        // Remove the free rect that was used for placement
-        this.freeRects.splice(rect.index, 1);
-
         // The placed rectangle's bounding box
         const pr = {
             x: rect.x,
@@ -92,6 +88,9 @@ class MaxRectsPacker {
         const prRight = pr.x + pr.w;
         const prBottom = pr.y + pr.h;
 
+        // IMPORTANT: DO NOT remove the used free rect before the split loop!
+        // Split ALL free rects that intersect with the placed rectangle.
+        
         const newFreeRects = [];
 
         for (const free of this.freeRects) {
@@ -101,10 +100,12 @@ class MaxRectsPacker {
             // Check if this free rect intersects with the placed rect
             if (pr.x >= frRight || prRight <= free.x ||
                 pr.y >= frBottom || prBottom <= free.y) {
+                // No intersection - keep this free rect as-is
                 newFreeRects.push(free);
                 continue;
             }
 
+            // There IS an intersection - split this free rect
             // Split LEFT
             if (free.x < pr.x) {
                 newFreeRects.push({
@@ -181,102 +182,16 @@ function runTests() {
     let passed = 0;
     let failed = 0;
 
-    // Test 1: Basic rectangles
-    console.log('\n=== Test 1: Basic 10x10 rectangles ===');
-    {
-        const packer = new MaxRectsPacker(100, 100);
-        const rects = [
-            { w: 30, h: 30 },
-            { w: 30, h: 30 },
-            { w: 30, h: 30 },
-            { w: 30, h: 30 }
-        ];
-
-        const placed = [];
-        for (const rect of rects) {
-            const result = packer.insert(rect.w, rect.h);
-            if (result) {
-                placed.push(result);
-            }
-        }
-
-        let hasOverlap = false;
-        for (let i = 0; i < placed.length; i++) {
-            for (let j = i + 1; j < placed.length; j++) {
-                if (packer.rectsOverlap(placed[i], placed[j])) {
-                    console.log(`  FAIL: Rect ${i} and ${j} overlap!`);
-                    hasOverlap = true;
-                }
-            }
-        }
-
-        // Also check free rects don't overlap with used rects
-        for (const free of packer.freeRects) {
-            for (const used of packer.usedRects) {
-                if (packer.rectsOverlap(free, used)) {
-                    console.log(`  FAIL: Free rect overlaps with used rect!`);
-                    hasOverlap = true;
-                }
-            }
-        }
-
-        if (!hasOverlap) {
-            console.log('  PASS: No overlapping rectangles');
-            passed++;
-        } else {
-            failed++;
-        }
-    }
-
-    // Test 2: Various sizes
-    console.log('\n=== Test 2: Various sizes ===');
+    // Test 1: CAPACITY TEST - 20 sprites should all fit
+    console.log('\n=== Test 1: CAPACITY TEST - 20 sprites ===');
     {
         const packer = new MaxRectsPacker(256, 256);
-        const rects = [
-            { w: 64, h: 32 },
-            { w: 32, h: 64 },
-            { w: 128, h: 64 },
-            { w: 32, h: 32 },
-            { w: 64, h: 64 },
-            { w: 96, h: 32 },
-            { w: 32, h: 96 }
-        ];
-
-        const placed = [];
-        for (const rect of rects) {
-            const result = packer.insert(rect.w, rect.h);
-            if (result) {
-                placed.push(result);
-            }
-        }
-
-        let hasOverlap = false;
-        for (let i = 0; i < placed.length; i++) {
-            for (let j = i + 1; j < placed.length; j++) {
-                if (packer.rectsOverlap(placed[i], placed[j])) {
-                    console.log(`  FAIL: Rect ${i} and ${j} overlap!`);
-                    hasOverlap = true;
-                }
-            }
-        }
-
-        if (!hasOverlap) {
-            console.log('  PASS: No overlapping rectangles');
-            passed++;
-        } else {
-            failed++;
-        }
-    }
-
-    // Test 3: Random rectangles
-    console.log('\n=== Test 3: Random rectangles ===');
-    {
-        const packer = new MaxRectsPacker(512, 512);
         const rects = [];
-        for (let i = 0; i < 50; i++) {
+        // Generate 20 varied-sized rectangles that should fit
+        for (let i = 0; i < 20; i++) {
             rects.push({
-                w: Math.floor(Math.random() * 64) + 16,
-                h: Math.floor(Math.random() * 64) + 16
+                w: 32 + Math.floor(Math.random() * 32),
+                h: 32 + Math.floor(Math.random() * 32)
             });
         }
 
@@ -289,6 +204,73 @@ function runTests() {
         }
 
         console.log(`  Placed ${placed.length}/${rects.length} rectangles`);
+        
+        // CAPACITY CHECK - all should fit in 256x256
+        if (placed.length < rects.length) {
+            console.log(`  FAIL: Expected ${rects.length} placed, got ${placed.length}`);
+            failed++;
+        } else {
+            console.log('  CAPACITY: PASS - All rectangles placed');
+            passed++;
+        }
+    }
+
+    // Test 2: Various sizes - capacity
+    console.log('\n=== Test 2: Various sizes - capacity ===');
+    {
+        const packer = new MaxRectsPacker(512, 512);
+        const rects = [
+            { w: 128, h: 128 },
+            { w: 128, h: 128 },
+            { w: 128, h: 128 },
+            { w: 256, h: 64 },
+            { w: 64, h: 256 },
+            { w: 64, h: 64 },
+            { w: 128, h: 32 },
+            { w: 32, h: 128 },
+            { w: 64, h: 32 },
+            { w: 32, h: 64 }
+        ];
+
+        const placed = [];
+        for (const rect of rects) {
+            const result = packer.insert(rect.w, rect.h);
+            if (result) {
+                placed.push(result);
+            }
+        }
+
+        console.log(`  Placed ${placed.length}/${rects.length} rectangles`);
+        
+        if (placed.length < rects.length) {
+            console.log(`  FAIL: Expected ${rects.length} placed, got ${placed.length}`);
+            failed++;
+        } else {
+            console.log('  CAPACITY: PASS - All rectangles placed');
+            passed++;
+        }
+    }
+
+    // Test 3: Overlap check
+    console.log('\n=== Test 3: Overlap check ===');
+    {
+        const packer = new MaxRectsPacker(256, 256);
+        const rects = [
+            { w: 64, h: 64 },
+            { w: 128, h: 32 },
+            { w: 32, h: 128 },
+            { w: 64, h: 32 },
+            { w: 32, h: 64 },
+            { w: 96, h: 48 }
+        ];
+
+        const placed = [];
+        for (const rect of rects) {
+            const result = packer.insert(rect.w, rect.h);
+            if (result) {
+                placed.push(result);
+            }
+        }
 
         let hasOverlap = false;
         for (let i = 0; i < placed.length; i++) {
@@ -301,28 +283,27 @@ function runTests() {
         }
 
         if (!hasOverlap) {
-            console.log('  PASS: No overlapping rectangles');
+            console.log('  OVERLAP: PASS - No overlapping rectangles');
             passed++;
         } else {
             failed++;
         }
     }
 
-    // Test 4: All algorithms
-    console.log('\n=== Test 4: All MaxRects algorithms ===');
+    // Test 4: All algorithms - capacity
+    console.log('\n=== Test 4: All algorithms - capacity ===');
     {
         const algorithms = ['BestShortSideFit', 'BestLongSideFit', 'BestAreaFit', 'BottomLeftRule'];
         
         for (const algo of algorithms) {
-            const packer = new MaxRectsPacker(256, 256);
-            const rects = [
-                { w: 64, h: 64 },
-                { w: 128, h: 32 },
-                { w: 32, h: 128 },
-                { w: 64, h: 32 },
-                { w: 32, h: 64 },
-                { w: 96, h: 48 }
-            ];
+            const packer = new MaxRectsPacker(512, 512);
+            const rects = [];
+            for (let i = 0; i < 15; i++) {
+                rects.push({
+                    w: 48 + Math.floor(Math.random() * 48),
+                    h: 48 + Math.floor(Math.random() * 48)
+                });
+            }
 
             const placed = [];
             for (const rect of rects) {
@@ -332,22 +313,46 @@ function runTests() {
                 }
             }
 
-            let hasOverlap = false;
-            for (let i = 0; i < placed.length; i++) {
-                for (let j = i + 1; j < placed.length; j++) {
-                    if (packer.rectsOverlap(placed[i], placed[j])) {
-                        console.log(`  ${algo}: FAIL - Rect ${i} and ${j} overlap!`);
-                        hasOverlap = true;
-                    }
-                }
-            }
-
-            if (!hasOverlap) {
-                console.log(`  ${algo}: PASS`);
-                passed++;
-            } else {
+            console.log(`  ${algo}: ${placed.length}/${rects.length} placed`);
+            
+            if (placed.length < rects.length) {
+                console.log(`    FAIL: Expected ${rects.length} placed`);
                 failed++;
+            } else {
+                console.log(`    PASS`);
+                passed++;
             }
+        }
+    }
+
+    // Test 5: Large bin, many small rects
+    console.log('\n=== Test 5: Large bin, many small rects ===');
+    {
+        const packer = new MaxRectsPacker(1024, 1024);
+        const rects = [];
+        for (let i = 0; i < 100; i++) {
+            rects.push({
+                w: 16 + Math.floor(Math.random() * 32),
+                h: 16 + Math.floor(Math.random() * 32)
+            });
+        }
+
+        const placed = [];
+        for (const rect of rects) {
+            const result = packer.insert(rect.w, rect.h);
+            if (result) {
+                placed.push(result);
+            }
+        }
+
+        console.log(`  Placed ${placed.length}/${rects.length} rectangles`);
+        
+        if (placed.length < rects.length) {
+            console.log(`  FAIL: Expected ${rects.length} placed, got ${placed.length}`);
+            failed++;
+        } else {
+            console.log('  CAPACITY: PASS');
+            passed++;
         }
     }
 

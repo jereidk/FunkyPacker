@@ -55,6 +55,7 @@ class AnimationTreeView extends React.Component {
         // Get reference counts
         let refSprites = animLinker.getReferencedSprites();
         let refSymbols = animLinker.getReferencedSymbols();
+        let symbolRefCounts = animLinker.getSymbolReferenceCounts(); // Real counts!
         let validation = animLinker.validateExistence(this.props.frames || []);
         
         return {
@@ -63,6 +64,7 @@ class AnimationTreeView extends React.Component {
             symbolDict,
             refSprites,
             refSymbols,
+            symbolRefCounts,  // Real occurrence counts per symbol
             validation,
             totalSprites: refSprites.length,
             totalSymbols: refSymbols.length,
@@ -142,8 +144,9 @@ class AnimationTreeView extends React.Component {
         let { symbols } = info.symbolDict;
         let isExpanded = this.state.expanded.symbols;
         
-        // Track which symbols are used (refSymbols contains unique names)
+        // Track which symbols are used and their real occurrence counts
         let usedSymbols = new Set(info.refSymbols);
+        let symbolRefCounts = info.symbolRefCounts; // Map<symbolName, count>
         
         return (
             <div className="anim-tree-section">
@@ -157,11 +160,12 @@ class AnimationTreeView extends React.Component {
                     <div className="anim-tree-content">
                         {symbols.slice(0, 30).map((sym, i) => {
                             let isUsed = usedSymbols.has(sym.SN);
+                            let refCount = symbolRefCounts.get(sym.SN) || 0;
                             return (
                                 <div key={i} className={`anim-tree-symbol ${!isUsed ? 'unused' : ''}`}>
                                     <span className="anim-tree-symbol-name">• {sym.SN}</span>
                                     <span className={`anim-tree-symbol-usage ${isUsed ? 'used' : 'unused'}`}>
-                                        {isUsed ? '✓ used' : '⚠ unused'}
+                                        {isUsed ? `✓ ${refCount}x` : '⚠ unused'}
                                     </span>
                                 </div>
                             );

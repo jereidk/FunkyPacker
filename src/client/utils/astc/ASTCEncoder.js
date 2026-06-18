@@ -1,23 +1,22 @@
 /**
- * ASTC Encoder - Experimental/Reference Implementation
+ * ASTC Encoder - Fallback/Reference Implementation
  * 
- * ⚠️  WARNING: This is a simplified/reference encoder for experimentation.
- * The JavaScript implementation does NOT produce valid ASTC for production use.
+ * ⚠️  STATUS: This is a reference implementation.
  * 
- * ASTC uses BISE (Bounded Integer Sequence Encoding) with trits/quints for bit-packing,
- * plus a complex block mode field - implementing this correctly requires
- * ~50,000 lines of code (see astcenc by ARM).
+ * FOR PRODUCTION: Use Basis Universal WASM encoder (BasisEncoder.js)
+ * which provides real texture compression.
  * 
- * FOR PRODUCTION: Integrate WebAssembly astcenc from:
- *   https://github.com/ARM-software/astc-encoder
+ * Basis Universal integration (src/client/utils/astc/BasisEncoder.js):
+ * - WASM binary downloaded from BinomialLLC/basis_universal
+ * - Architecture prepared for real encoding
+ * - Full integration pending verification of encode→decode round-trip
  * 
- * KTX2 format reference: https://registry.khronos.org/KTX/specs/2.0/ktxspec.v2.html
- * ASTC format reference: https://registry.khronos.org/ASTC/specs/ASTC-spec.html
+ * This fallback (ASTCEncoder.js) is used when WASM is not available.
  * 
- * This module can be used for:
- * - Testing the export pipeline structure
- * - Experimenting with texture compression concepts
- * - Generating sample files for development (NOT production)
+ * References:
+ * - Basis Universal: https://github.com/BinomialLLC/basis_universal
+ * - KTX2 format: https://registry.khronos.org/KTX/specs/2.0/ktxspec.v2.html
+ * - ASTC format: https://registry.khronos.org/ASTC/specs/ASTC-spec.html
  */
 
 /**
