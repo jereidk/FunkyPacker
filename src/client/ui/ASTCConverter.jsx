@@ -1,5 +1,6 @@
 import React from 'react';
-import astcEncoder from '../utils/astc/ASTCEncoder';
+import basisEncoder from '../utils/astc/BasisEncoder';
+import astcEncoderFallback from '../utils/astc/ASTCEncoder';
 
 class ASTCConverter extends React.Component {
     constructor(props) {
@@ -124,17 +125,31 @@ class ASTCConverter extends React.Component {
             }, 100);
             
             // Encode to ASTC
-            let astcData = await astcEncoder.encode(imageData, options);
-            
-            // Create output file
-            let outputData;
-            let extension;
-            
-            if (this.state.outputFormat === 'ktx2') {
-                astcData = astcEncoder.createKTX2(astcData, canvas.width, canvas.height, this.state.blockSize);
-                extension = 'ktx2';
-            } else {
-                extension = 'astc';
+            let astcData;
+            let extension = this.state.outputFormat === 'ktx2' ? 'ktx2' : 'astc';
+
+            try {
+                if (basisEncoder.isReady()) {
+                    console.log('[ASTCConverter] Using Basis Universal WASM encoder');
+                    const result = await basisEncoder.encode(imageData, options);
+                    astcData = result.ktx2; // Basis already produces KTX2
+                    extension = 'ktx2'; // Force ktx2 if using Basis
+                } else {
+                    const ready = await basisEncoder.initialize();
+                    if (ready) {
+                        const result = await basisEncoder.encode(imageData, options);
+                        astcData = result.ktx2;
+                        extension = 'ktx2';
+                    } else {
+                        throw new Error('Basis init failed');
+                    }
+                }
+            } catch (e) {
+                console.warn('[ASTCConverter] Basis failed, using fallback:', e.message);
+                astcData = await astcEncoderFallback.encode(imageData, options);
+                if (this.state.outputFormat === 'ktx2') {
+                    astcData = astcEncoderFallback.createKTX2(astcData, canvas.width, canvas.height, this.state.blockSize);
+                }
             }
             
             clearInterval(progressInterval);

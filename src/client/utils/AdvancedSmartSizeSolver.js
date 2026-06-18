@@ -481,10 +481,25 @@ class SkylinePacker {
         };
 
         // Update skyline - the new skyline level should be at top of placed rect
-        // (bestY is the skyline height, rect.y = bestY + padding, top = rect.y + height)
-        // So skyline node y should be: bestY + height (NOT bestY + paddedH)
-        const newNode = { x: bestX, y: bestY + height, w: paddedW };
-        this.skyline.splice(bestIndex, 0, newNode);
+        // (bestY is the skyline height, top = bestY + paddedH)
+        const newNode = { x: bestX, y: bestY + paddedH, w: paddedW };
+
+        // Remove nodes covered by the new node and split if necessary
+        let i = bestIndex;
+        let coveredWidth = 0;
+        while (i < this.skyline.length && coveredWidth < paddedW) {
+            coveredWidth += this.skyline[i].w;
+            i++;
+        }
+
+        if (coveredWidth > paddedW) {
+            const lastNode = this.skyline[i-1];
+            const excess = coveredWidth - paddedW;
+            this.skyline[i-1] = { x: lastNode.x + (lastNode.w - excess), y: lastNode.y, w: excess };
+            i--;
+        }
+
+        this.skyline.splice(bestIndex, i - bestIndex, newNode);
 
         // Merge adjacent skyline levels that have the same height
         // This consolidates the skyline and prevents fragmentation
@@ -527,9 +542,10 @@ class SkylinePacker {
         let i = index;
         let x = this.skyline[index].x;
 
+        if (x + width > this.binWidth) return Infinity;
+
         while (i < this.skyline.length && x + width > this.skyline[i].x) {
             y = Math.max(y, this.skyline[i].y);
-            x = this.skyline[i].x + this.skyline[i].w;
             i++;
         }
 
