@@ -167,6 +167,30 @@ class PackProcessor {
         let width = options.width || 0;
         let height = options.height || 0;
 
+        // SMART SIZE SOLVER INTEGRATION
+        // If solverMode is not 'manual', calculate optimal dimensions
+        const solverMode = options.solverMode || SOLVER_MODE.MANUAL;
+        
+        if (solverMode !== SOLVER_MODE.MANUAL && rects.length > 0) {
+            const solverResult = PackProcessor.calculateOptimalDimensions(rects, {
+                width: width || 4096,
+                height: height || 4096,
+                solverMode: solverMode,
+                spritePadding: spritePadding,
+                borderPadding: borderPadding,
+                allowRotation: options.allowRotation || false,
+                disableMaxLimit: options.disableMaxLimit || false,
+                packingAlgorithm: options.packingAlgorithm || 'best'
+            });
+            
+            width = solverResult.width;
+            height = solverResult.height;
+            
+            // Store solver info for UI feedback
+            if (!options._solverInfo) options._solverInfo = {};
+            options._solverInfo.lastResult = solverResult;
+        }
+
         if (!width) width = maxWidth;
         if (!height) height = maxHeight;
 
