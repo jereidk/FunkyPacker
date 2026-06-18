@@ -21,6 +21,7 @@ class LogConsole extends React.Component {
         // Bind methods
         this.togglePanel = this.togglePanel.bind(this);
         this.clearLogs = this.clearLogs.bind(this);
+        this.copyLogs = this.copyLogs.bind(this);
         this.handleLog = this.handleLog.bind(this);
         
         // Override console methods
@@ -96,6 +97,31 @@ class LogConsole extends React.Component {
         this.setState({ logs: [] });
     }
 
+    copyLogs() {
+        const { logs, showTimestamps } = this.state;
+        const text = logs.map(log => {
+            const timestamp = showTimestamps ? `[${log.timestamp}] ` : '';
+            const type = `[${log.type.toUpperCase()}] `;
+            return `${timestamp}${type}${log.message}`;
+        }).join('\n');
+        
+        navigator.clipboard.writeText(text).then(() => {
+            // Show brief "Copied!" feedback
+            const btn = this.copyBtn;
+            if (btn) {
+                const originalText = btn.textContent;
+                btn.textContent = '¡Copiado!';
+                btn.style.backgroundColor = '#2ecc71';
+                setTimeout(() => {
+                    btn.textContent = originalText;
+                    btn.style.backgroundColor = '#444';
+                }, 1500);
+            }
+        }).catch(err => {
+            console.error('Failed to copy logs:', err);
+        });
+    }
+
     getLogIcon(type) {
         switch (type) {
             case 'error': return '❌';
@@ -162,6 +188,13 @@ class LogConsole extends React.Component {
                                 />
                                 Hora
                             </label>
+                            <button 
+                                ref={el => this.copyBtn = el}
+                                style={styles.clearBtn} 
+                                onClick={this.copyLogs}
+                            >
+                                📋 Copiar
+                            </button>
                             <button style={styles.clearBtn} onClick={this.clearLogs}>
                                 Limpiar
                             </button>

@@ -288,13 +288,18 @@ class SheetSplitter extends React.Component {
     }
 
     selectTexture(e) {
-        if(e.target.files.length) {
+        // Save values before async operations - e.target becomes null after handler
+        const files = e.target.files;
+        
+        if(files && files.length) {
             Observer.emit(GLOBAL_EVENT.SHOW_SHADER);
-            console.log('[SheetSplitter] Loading texture:', e.target.files[0].name);
+            console.log('[SheetSplitter] Loading texture:', files[0].name);
 
+            const fileName = files[0].name;
+            
             let loader = new LocalImagesLoader();
             loader.load(
-                e.target.files, 
+                files, 
                 null, 
                 data => {
                     console.log('[SheetSplitter] Texture loaded, data keys:', Object.keys(data));
@@ -313,7 +318,7 @@ class SheetSplitter extends React.Component {
 
                     // Auto-fill export/zip names from PNG filename if inputs are empty
                     // This preserves user edits (e.g., if they already typed something or loaded a data file first)
-                    let baseName = e.target.files[0].name.replace(/\.[^.]+$/, '');
+                    let baseName = fileName.replace(/\.[^.]+$/, '');
                     if (!this.exportNameInput || !this.exportNameInput.value.trim()) {
                         this.exportName = baseName;
                         if (this.exportNameInput) {
@@ -331,8 +336,8 @@ class SheetSplitter extends React.Component {
 
                     Observer.emit(GLOBAL_EVENT.HIDE_SHADER);
                 },
-                (fileName, error) => {
-                    console.error('[SheetSplitter] Error loading texture:', fileName, error);
+                (loadFileName, error) => {
+                    console.error('[SheetSplitter] Error loading texture:', loadFileName, error);
                     Observer.emit(GLOBAL_EVENT.HIDE_SHADER);
                 }
             );
