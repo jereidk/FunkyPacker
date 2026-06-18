@@ -93,6 +93,9 @@ class ImagesList extends React.Component {
             let loader = new LocalImagesLoader();
             loader.load(e.dataTransfer.files, null, data => {
                 return this.loadImagesComplete(data);
+            }, (fileName, error) => {
+                console.error('[ImagesList] Error loading dropped files:', fileName, error);
+                Observer.emit(GLOBAL_EVENT.HIDE_SHADER);
             });
         }
 
@@ -106,6 +109,9 @@ class ImagesList extends React.Component {
             let loader = new LocalImagesLoader();
             loader.load(e.target.files, null, data => {
                 return this.loadImagesComplete(data);
+            }, (fileName, error) => {
+                console.error('[ImagesList] Error loading images:', fileName, error);
+                Observer.emit(GLOBAL_EVENT.HIDE_SHADER);
             });
         }
     }

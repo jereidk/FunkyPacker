@@ -290,36 +290,52 @@ class SheetSplitter extends React.Component {
     selectTexture(e) {
         if(e.target.files.length) {
             Observer.emit(GLOBAL_EVENT.SHOW_SHADER);
+            console.log('[SheetSplitter] Loading texture:', e.target.files[0].name);
 
             let loader = new LocalImagesLoader();
-            loader.load(e.target.files, null, data => {
-                let keys = Object.keys(data);
+            loader.load(
+                e.target.files, 
+                null, 
+                data => {
+                    console.log('[SheetSplitter] Texture loaded, data keys:', Object.keys(data));
+                    let keys = Object.keys(data);
 
-                this.textureName = keys[0];
-
-                this.texture = data[this.textureName];
-                ReactDOM.findDOMNode(this.refs.textureName).textContent = this.textureName;
-
-                // Auto-fill export/zip names from PNG filename if inputs are empty
-                // This preserves user edits (e.g., if they already typed something or loaded a data file first)
-                let baseName = e.target.files[0].name.replace(/\.[^.]+$/, '');
-                if (!this.exportNameInput || !this.exportNameInput.value.trim()) {
-                    this.exportName = baseName;
-                    if (this.exportNameInput) {
-                        this.exportNameInput.value = baseName;
+                    if (keys.length === 0) {
+                        console.error('[SheetSplitter] No images loaded!');
+                        Observer.emit(GLOBAL_EVENT.HIDE_SHADER);
+                        return;
                     }
-                }
-                if (!this.zipNameInput || !this.zipNameInput.value.trim()) {
-                    this.zipName = baseName;
-                    if (this.zipNameInput) {
-                        this.zipNameInput.value = baseName;
+
+                    this.textureName = keys[0];
+
+                    this.texture = data[this.textureName];
+                    ReactDOM.findDOMNode(this.refs.textureName).textContent = this.textureName;
+
+                    // Auto-fill export/zip names from PNG filename if inputs are empty
+                    // This preserves user edits (e.g., if they already typed something or loaded a data file first)
+                    let baseName = e.target.files[0].name.replace(/\.[^.]+$/, '');
+                    if (!this.exportNameInput || !this.exportNameInput.value.trim()) {
+                        this.exportName = baseName;
+                        if (this.exportNameInput) {
+                            this.exportNameInput.value = baseName;
+                        }
                     }
+                    if (!this.zipNameInput || !this.zipNameInput.value.trim()) {
+                        this.zipName = baseName;
+                        if (this.zipNameInput) {
+                            this.zipNameInput.value = baseName;
+                        }
+                    }
+
+                    this.updateView();
+
+                    Observer.emit(GLOBAL_EVENT.HIDE_SHADER);
+                },
+                (fileName, error) => {
+                    console.error('[SheetSplitter] Error loading texture:', fileName, error);
+                    Observer.emit(GLOBAL_EVENT.HIDE_SHADER);
                 }
-
-                this.updateView();
-
-                Observer.emit(GLOBAL_EVENT.HIDE_SHADER);
-            });
+            );
         }
     }
 

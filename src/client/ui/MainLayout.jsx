@@ -15,6 +15,7 @@ import MusicPlayer from './MusicPlayer.jsx';
 import ASTCConverter from './ASTCConverter.jsx';
 import PngCompressorPanel from './PngCompressorPanel.jsx';
 import ZipAssetCompressor from './ZipAssetCompressor.jsx';
+import LogConsole from './LogConsole.jsx';
 
 import {Observer, GLOBAL_EVENT} from '../Observer';
 
@@ -124,6 +125,7 @@ class MainLayout extends React.Component {
                     <ASTCConverter/>
                     <PngCompressorPanel/>
                     <ZipAssetCompressor/>
+                    <LogConsole/>
                 </div>
             </div>
         );

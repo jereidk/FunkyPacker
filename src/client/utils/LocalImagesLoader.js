@@ -7,11 +7,13 @@ class LocalImagesLoader {
 
         this.onProgress = null;
         this.onEnd = null;
+        this.onError = null;
 
         this.waitImages = this.waitImages.bind(this);
+        this.loadNext = this.loadNext.bind(this);
     }
 
-    load(data, onProgress = null, onEnd = null) {
+    load(data, onProgress = null, onEnd = null, onError = null) {
         this.data = [];
 
         for (let i = 0; i < data.length; i++) {
@@ -20,6 +22,7 @@ class LocalImagesLoader {
 
         this.onProgress = onProgress;
         this.onEnd = onEnd;
+        this.onError = onError;
 
         this.loadNext();
     }
@@ -54,11 +57,8 @@ class LocalImagesLoader {
                 folder: ""
             };
 
-            let reader = new FileReader();
-            reader.onload = e => {
-                img.src = e.target.result;
-                img._base64 = e.target.result;
-
+            // Handle image load completion
+            img.onload = () => {
                 this.loaded[item.name] = img;
                 this.loadedCnt++;
 
@@ -69,27 +69,55 @@ class LocalImagesLoader {
                 this.loadNext();
             };
 
+            // Handle image load error
+            img.onerror = (e) => {
+                console.error('[LocalImagesLoader] Failed to load image:', name, e);
+                if (this.onError) {
+                    this.onError(name, e);
+                }
+                // Continue loading other images
+                this.loadNext();
+            };
+
+            let reader = new FileReader();
+            reader.onload = e => {
+                img.src = e.target.result;
+                img._base64 = e.target.result;
+            };
+
+            reader.onerror = (e) => {
+                console.error('[LocalImagesLoader] FileReader error for:', name, e);
+                if (this.onError) {
+                    this.onError(name, e);
+                }
+                this.loadNext();
+            };
+
             reader.readAsDataURL(item);
         }
         else {
+            console.warn('[LocalImagesLoader] Skipping non-image file:', item.name, 'type:', item.type);
             this.loadNext();
         }
     }
 
     waitImages() {
         let ready = true;
+        let notReadyKeys = [];
 
         for (let key of Object.keys(this.loaded)) {
             if (!this.loaded[key].complete) {
                 ready = false;
-                break;
+                notReadyKeys.push(key);
             }
         }
 
         if (ready) {
+            console.log('[LocalImagesLoader] All images loaded, total:', Object.keys(this.loaded).length);
             if (this.onEnd) this.onEnd(this.loaded);
         }
         else {
+            console.warn('[LocalImagesLoader] Waiting for images to complete:', notReadyKeys);
             setTimeout(this.waitImages, 50);
         }
     }
