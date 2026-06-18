@@ -14,22 +14,22 @@
  */
 
 // Block size to ASTC format mapping (confirmed with actual module inspection)
-// Uses cASTC_LDR_* format names as exposed by Module.basis_tex_format
+// Uses cTFASTC_LDR_* format names as exposed by Module.basis_tex_format
 const BLOCK_FORMAT_MAP = {
-    '4x4': 'cASTC_LDR_4x4',
-    '5x4': 'cASTC_LDR_5x4',
-    '5x5': 'cASTC_LDR_5x5',
-    '6x5': 'cASTC_LDR_6x5',
-    '6x6': 'cASTC_LDR_6x6',
-    '8x5': 'cASTC_LDR_8x5',
-    '8x6': 'cASTC_LDR_8x6',
-    '10x5': 'cASTC_LDR_10x5',
-    '10x6': 'cASTC_LDR_10x6',
-    '8x8': 'cASTC_LDR_8x8',
-    '10x8': 'cASTC_LDR_10x8',
-    '10x10': 'cASTC_LDR_10x10',
-    '12x10': 'cASTC_LDR_12x10',
-    '12x12': 'cASTC_LDR_12x12',
+    '4x4': 'cTFASTC_LDR_4x4',
+    '5x4': 'cTFASTC_LDR_5x4_RGBA',
+    '5x5': 'cTFASTC_LDR_5x5_RGBA',
+    '6x5': 'cTFASTC_LDR_6x5_RGBA',
+    '6x6': 'cTFASTC_LDR_6x6_RGBA',
+    '8x5': 'cTFASTC_LDR_8x5_RGBA',
+    '8x6': 'cTFASTC_LDR_8x6_RGBA',
+    '10x5': 'cTFASTC_LDR_10x5_RGBA',
+    '10x6': 'cTFASTC_LDR_10x6_RGBA',
+    '8x8': 'cTFASTC_LDR_8x8_RGBA',
+    '10x8': 'cTFASTC_LDR_10x8_RGBA',
+    '10x10': 'cTFASTC_LDR_10x10_RGBA',
+    '12x10': 'cTFASTC_LDR_12x10_RGBA',
+    '12x12': 'cTFASTC_LDR_12x12_RGBA',
 };
 
 /**
@@ -174,8 +174,8 @@ class BasisEncoder {
             this.encoder = encoder;
 
             // Set source image data (RGBA, 4 bytes per pixel)
-            // cRGBA32 is the correct enum value (confirmed from module inspection)
-            const imageType = Module.ldr_image_type.cRGBA32.value;
+            // cLDRGBAImage is the correct enum for raw RGBA data
+            const imageType = Module.ldr_image_type.cLDRGBAImage.value;
             encoder.setSliceSourceImage(0, rawData, width, height, imageType);
 
             // Set output format to ASTC
