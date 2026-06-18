@@ -15,6 +15,9 @@ class SmartSizePreview extends React.Component {
             spriteCount: 0
         };
         
+        // Store last known options to correlate with images changes
+        this.lastOptions = {};
+        
         // Listen for pack options changes to update preview
         Observer.on(GLOBAL_EVENT.PACK_OPTIONS_CHANGED, this.onOptionsChanged, this);
         Observer.on(GLOBAL_EVENT.IMAGES_LIST_CHANGED, this.onImagesChanged, this);
@@ -26,12 +29,14 @@ class SmartSizePreview extends React.Component {
     }
 
     onOptionsChanged(options) {
-        this.updatePreview(options);
+        // Store options for later use when images change
+        this.lastOptions = options || {};
+        this.updatePreview(this.lastOptions);
     }
 
     onImagesChanged(images) {
-        const options = PackProperties.i ? PackProperties.i.packOptions : {};
-        this.updatePreview(options, images);
+        // Use the stored options - no need for invalid fallbacks
+        this.updatePreview(this.lastOptions, images);
     }
 
     updatePreview(options, images) {
@@ -45,9 +50,11 @@ class SmartSizePreview extends React.Component {
             return;
         }
 
-        // Get images if not provided
+        // images parameter comes from the event directly
+        // If not provided, there's nothing to process
         if (!images) {
-            images = APP.i ? APP.i.images : {};
+            this.setState({ visible: true, result: null, spriteCount: 0 });
+            return;
         }
 
         const rects = this.prepareRects(images);

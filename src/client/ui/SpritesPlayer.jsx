@@ -16,7 +16,9 @@ class SpritesPlayer extends React.Component {
             fps: 12,
             backgroundColor: '#1a1a2e',
             showGrid: false,
-            playbackDirection: 'forward'
+            playbackDirection: 'forward',
+            selectedGroup: 'all',  // 'all' or a specific group name
+            groupedAnimations: {}   // Computed groups: { groupName: [textureIndices] }
         };
 
         this.textures = [];
@@ -29,6 +31,8 @@ class SpritesPlayer extends React.Component {
 
         // Bind all methods to preserve 'this' context
         this.updateCurrentTextures = this.updateCurrentTextures.bind(this);
+        this.calculateGroups = this.calculateGroups.bind(this);
+        this.selectGroup = this.selectGroup.bind(this);
         this.playAnimation = this.playAnimation.bind(this);
         this.stopAnimation = this.stopAnimation.bind(this);
         this.setZoom = this.setZoom.bind(this);
@@ -45,8 +49,57 @@ class SpritesPlayer extends React.Component {
         Observer.on(GLOBAL_EVENT.IMAGES_LIST_SELECTED_CHANGED, this.onImagesSelected, this);
     }
 
+    /**
+     * Calculate animation groups based on sprite prefixes
+     * Groups sprites by their cleanPrefix() name
+     */
+    calculateGroups() {
+        const groups = {};
+        
+        for (let i = 0; i < this.textures.length; i++) {
+            const tex = this.textures[i];
+            // Check if this texture is in selectedImages
+            const isSelected = !tex.config.cloned 
+                ? this.selectedImages.indexOf(tex.config.file) >= 0
+                : this.selectedImages.indexOf(tex.config.originalFile) >= 0;
+            
+            if (!isSelected) continue;
+            
+            const prefix = cleanPrefix(tex.config.originalFile || tex.config.file || tex.config.name);
+            
+            if (!groups[prefix]) {
+                groups[prefix] = [];
+            }
+            groups[prefix].push(i);
+        }
+        
+        // Sort groups and their members
+        for (const groupName in groups) {
+            groups[groupName].sort((a, b) => {
+                return smartSortImages(
+                    this.textures[a].config.name,
+                    this.textures[b].config.name
+                );
+            });
+        }
+        
+        return groups;
+    }
+
+    /**
+     * Select an animation group to play
+     */
+    selectGroup(groupName) {
+        this.setState({ selectedGroup: groupName }, () => {
+            this.updateCurrentTextures();
+        });
+    }
+
     onImagesSelected(list=[]) {
         this.selectedImages = list;
+        // Recalculate groups when selection changes
+        const groups = this.calculateGroups();
+        this.setState({ groupedAnimations: groups });
         this.updateCurrentTextures();
     }
 
@@ -143,6 +196,11 @@ class SpritesPlayer extends React.Component {
         }
 
         this.lastPropsData = this.props.data;
+        
+        // Calculate initial groups
+        const groups = this.calculateGroups();
+        this.setState({ groupedAnimations: groups });
+        
         this.updateCurrentTextures();
     }
 
@@ -176,18 +234,24 @@ class SpritesPlayer extends React.Component {
     }
 
     updateCurrentTextures() {
-        let textures = [];
-
-        for(let tex of this.textures) {
-            if(!tex.config.cloned && this.selectedImages.indexOf(tex.config.file) >= 0) {
-                textures.push(tex);
+        const { selectedGroup, groupedAnimations } = this.state;
+        
+        let textureIndices = [];
+        
+        if (selectedGroup === 'all') {
+            // Get all indices from all groups
+            for (const groupName in groupedAnimations) {
+                textureIndices = textureIndices.concat(groupedAnimations[groupName]);
             }
-
-            if(tex.config.cloned && this.selectedImages.indexOf(tex.config.originalFile) >= 0) {
-                textures.push(tex);
-            }
+        } else {
+            // Get indices from specific group
+            textureIndices = groupedAnimations[selectedGroup] || [];
         }
-
+        
+        // Build textures array from indices
+        let textures = textureIndices.map(idx => this.textures[idx]);
+        
+        // Sort them
         textures = textures.sort((a, b) => {
             return smartSortImages(a.config.name, b.config.name);
         });
@@ -381,7 +445,10 @@ class SpritesPlayer extends React.Component {
     }
 
     render() {
-        const { currentFrame, isPlaying, zoom, fps, backgroundColor, showGrid, playbackDirection } = this.state;
+        const { currentFrame, isPlaying, zoom, fps, backgroundColor, showGrid, playbackDirection, selectedGroup, groupedAnimations } = this.state;
+        
+        // Get sorted group names for display
+        const groupNames = Object.keys(groupedAnimations).sort();
         
         return (
             <div className="player-view-container" ref="playerContainer">
@@ -398,6 +465,65 @@ class SpritesPlayer extends React.Component {
                         flexDirection: 'column',
                         padding: '10px'
                     }}>
+                        {/* Animation Group Selector */}
+                        {groupNames.length > 0 && (
+                            <div style={{
+                                marginBottom: '10px',
+                                padding: '8px',
+                                background: 'var(--bg-secondary)',
+                                borderRadius: '6px',
+                                border: '1px solid var(--border-color)'
+                            }}>
+                                <div style={{
+                                    color: 'var(--text-secondary)',
+                                    fontSize: '11px',
+                                    marginBottom: '6px'
+                                }}>
+                                    🎬 Animación:
+                                </div>
+                                <div style={{
+                                    display: 'flex',
+                                    flexWrap: 'wrap',
+                                    gap: '6px'
+                                }}>
+                                    <button
+                                        onClick={() => this.selectGroup('all')}
+                                        style={{
+                                            padding: '6px 12px',
+                                            borderRadius: '16px',
+                                            border: 'none',
+                                            background: selectedGroup === 'all' ? 'var(--accent-color)' : 'var(--bg-tertiary)',
+                                            color: selectedGroup === 'all' ? '#fff' : 'var(--text-primary)',
+                                            cursor: 'pointer',
+                                            fontSize: '11px',
+                                            fontWeight: selectedGroup === 'all' ? 'bold' : 'normal'
+                                        }}
+                                    >
+                                        Todos ({this.currentTextures.length})
+                                    </button>
+                                    {groupNames.map(name => (
+                                        <button
+                                            key={name}
+                                            onClick={() => this.selectGroup(name)}
+                                            style={{
+                                                padding: '6px 12px',
+                                                borderRadius: '16px',
+                                                border: 'none',
+                                                background: selectedGroup === name ? 'var(--accent-color)' : 'var(--bg-tertiary)',
+                                                color: selectedGroup === name ? '#fff' : 'var(--text-primary)',
+                                                cursor: 'pointer',
+                                                fontSize: '11px',
+                                                fontWeight: selectedGroup === name ? 'bold' : 'normal'
+                                            }}
+                                            title={`${groupedAnimations[name].length} frames`}
+                                        >
+                                            {name} ({groupedAnimations[name].length})
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                        
                         <div style={{ 
                             flex: 1,
                             display: 'flex',
