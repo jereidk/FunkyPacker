@@ -13,22 +13,23 @@
  * Reference: https://github.com/BinomialLLC/basis_universal
  */
 
-// Block size to ASTC format mapping
+// Block size to ASTC format mapping (confirmed with actual module inspection)
+// Uses cASTC_LDR_* format names as exposed by Module.basis_tex_format
 const BLOCK_FORMAT_MAP = {
-    '4x4': 'cTFASTC_4x4',
-    '5x4': 'cTFASTC_LDR_5x4_RGBA',
-    '5x5': 'cTFASTC_LDR_5x5_RGBA',
-    '6x5': 'cTFASTC_LDR_6x5_RGBA',
-    '6x6': 'cTFASTC_LDR_6x6_RGBA',
-    '8x5': 'cTFASTC_LDR_8x5_RGBA',
-    '8x6': 'cTFASTC_LDR_8x6_RGBA',
-    '10x5': 'cTFASTC_LDR_10x5_RGBA',
-    '10x6': 'cTFASTC_LDR_10x6_RGBA',
-    '8x8': 'cTFASTC_LDR_8x8_RGBA',
-    '10x8': 'cTFASTC_LDR_10x8_RGBA',
-    '10x10': 'cTFASTC_LDR_10x10_RGBA',
-    '12x10': 'cTFASTC_LDR_12x10_RGBA',
-    '12x12': 'cTFASTC_LDR_12x12_RGBA',
+    '4x4': 'cASTC_LDR_4x4',
+    '5x4': 'cASTC_LDR_5x4',
+    '5x5': 'cASTC_LDR_5x5',
+    '6x5': 'cASTC_LDR_6x5',
+    '6x6': 'cASTC_LDR_6x6',
+    '8x5': 'cASTC_LDR_8x5',
+    '8x6': 'cASTC_LDR_8x6',
+    '10x5': 'cASTC_LDR_10x5',
+    '10x6': 'cASTC_LDR_10x6',
+    '8x8': 'cASTC_LDR_8x8',
+    '10x8': 'cASTC_LDR_10x8',
+    '10x10': 'cASTC_LDR_10x10',
+    '12x10': 'cASTC_LDR_12x10',
+    '12x12': 'cASTC_LDR_12x12',
 };
 
 /**
@@ -173,7 +174,8 @@ class BasisEncoder {
             this.encoder = encoder;
 
             // Set source image data (RGBA, 4 bytes per pixel)
-            const imageType = Module.ldr_image_type.cRGBAImage.value;
+            // cRGBA32 is the correct enum value (confirmed from module inspection)
+            const imageType = Module.ldr_image_type.cRGBA32.value;
             encoder.setSliceSourceImage(0, rawData, width, height, imageType);
 
             // Set output format to ASTC
@@ -196,19 +198,22 @@ class BasisEncoder {
             encoder.setKTX2AndBasisSRGBTransferFunc(sRGB);
             encoder.setMipSRGB(sRGB);
 
-            // Quality level
+            // Quality level (1-255)
             encoder.setQualityLevel(quality);
 
-            // Encode!
-            const success = encoder.encode();
+            // Allocate output buffer for KTX2 data
+            // Size: enough for worst case (24MB should cover 4096x4096 RGBA)
+            const outputBuffer = new Uint8Array(1024 * 1024 * 24);
+
+            // Encode! - returns actual bytes written
+            const ktx2Size = encoder.encode(outputBuffer);
             
-            if (!success) {
-                throw new Error('BasisEncoder: encode() returned false');
+            if (ktx2Size <= 0) {
+                throw new Error('BasisEncoder: encode() returned ' + ktx2Size);
             }
 
-            // Get the KTX2 output
-            const ktx2Size = encoder.getKTX2FileSize();
-            const ktx2Data = encoder.getKTX2File();
+            // Extract the actual encoded data from the buffer
+            const ktx2Data = outputBuffer.slice(0, ktx2Size);
 
             console.log(`[BasisEncoder] Encoded ${ktx2Size} bytes`);
 
