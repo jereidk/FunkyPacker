@@ -422,8 +422,10 @@ class SkylinePacker {
             h: height
         };
 
-        // Update skyline
-        const newNode = { x: bestX, y: bestY + paddedH, w: paddedW };
+        // Update skyline - the new skyline level should be at top of placed rect
+        // (bestY is the skyline height, rect.y = bestY + padding, top = rect.y + height)
+        // So skyline node y should be: bestY + height (NOT bestY + paddedH)
+        const newNode = { x: bestX, y: bestY + height, w: paddedW };
         this.skyline.splice(bestIndex, 0, newNode);
 
         // Merge adjacent skyline levels that have the same height
