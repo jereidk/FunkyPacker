@@ -57,18 +57,6 @@ class LocalImagesLoader {
                 folder: ""
             };
 
-            // Handle image load completion - add to loaded map
-            img.onload = () => {
-                this.loaded[item.name] = img;
-                this.loadedCnt++;
-
-                if (this.onProgress) {
-                    this.onProgress(this.loadedCnt / (this.loadedCnt + this.data.length));
-                }
-
-                // Note: don't call loadNext() here - let the polling handle it
-            };
-
             // Handle image load error
             img.onerror = (e) => {
                 console.error('[LocalImagesLoader] Failed to load image:', name, e);
@@ -83,9 +71,15 @@ class LocalImagesLoader {
             reader.onload = e => {
                 img.src = e.target.result;
                 img._base64 = e.target.result;
-                
-                // Queue next file immediately after setting img.src
-                // The img.onload will fire later and add to loaded map
+
+                // Add to loaded map immediately after reader finishes
+                this.loaded[item.name] = img;
+                this.loadedCnt++;
+
+                if (this.onProgress) {
+                    this.onProgress(this.loadedCnt / (this.loadedCnt + this.data.length));
+                }
+
                 this.loadNext();
             };
 
