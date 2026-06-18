@@ -75,6 +75,9 @@ class PackProperties extends React.Component {
 
         data.textureName = data.textureName || "texture";
         data.textureFormat = data.textureFormat || "png";
+        data.compressPng = data.compressPng === undefined ? false : data.compressPng;
+        data.compressPngQuality = data.compressPngQuality !== undefined ? data.compressPngQuality : 0.8;
+        data.compressPngStripMeta = data.compressPngStripMeta === undefined ? false : data.compressPngStripMeta;
         data.removeFileExtension = data.removeFileExtension === undefined ? true : data.removeFileExtension;
         data.prependFolderName = data.prependFolderName === undefined ? true : data.prependFolderName;
         data.scale = data.scale || 1;
@@ -134,6 +137,17 @@ class PackProperties extends React.Component {
         data.textureName = ReactDOM.findDOMNode(this.refs.textureName).value;
         data.textureFormat = ReactDOM.findDOMNode(this.refs.textureFormat).value;
         
+        // PNG compression options
+        if (this.refs.compressPng) {
+            data.compressPng = ReactDOM.findDOMNode(this.refs.compressPng).checked;
+        }
+        if (this.refs.compressPngQuality) {
+            data.compressPngQuality = Number(ReactDOM.findDOMNode(this.refs.compressPngQuality).value);
+        }
+        if (this.refs.compressPngStripMeta) {
+            data.compressPngStripMeta = ReactDOM.findDOMNode(this.refs.compressPngStripMeta).checked;
+        }
+        
         // ASTC options
         if (this.refs.astcBlockSize) {
             data.astcBlockSize = ReactDOM.findDOMNode(this.refs.astcBlockSize).value;
@@ -176,6 +190,9 @@ class PackProperties extends React.Component {
     refreshPackOptions() {
         ReactDOM.findDOMNode(this.refs.textureName).value = this.packOptions.textureName;
         ReactDOM.findDOMNode(this.refs.textureFormat).value = this.packOptions.textureFormat;
+        if (this.refs.compressPng) ReactDOM.findDOMNode(this.refs.compressPng).checked = this.packOptions.compressPng;
+        if (this.refs.compressPngQuality) ReactDOM.findDOMNode(this.refs.compressPngQuality).value = this.packOptions.compressPngQuality;
+        if (this.refs.compressPngStripMeta) ReactDOM.findDOMNode(this.refs.compressPngStripMeta).checked = this.packOptions.compressPngStripMeta;
         ReactDOM.findDOMNode(this.refs.removeFileExtension).checked = this.packOptions.removeFileExtension;
         ReactDOM.findDOMNode(this.refs.prependFolderName).checked = this.packOptions.prependFolderName;
         ReactDOM.findDOMNode(this.refs.base64Export).checked = this.packOptions.base64Export;
@@ -253,6 +270,7 @@ class PackProperties extends React.Component {
     onExporterPropChanged() {
         this.updatePackOptions();
         this.saveOptions();
+        this.forceUpdate();
 
         Observer.emit(GLOBAL_EVENT.PACK_EXPORTER_CHANGED, this.getPackOptions());
     }
@@ -340,6 +358,24 @@ class PackProperties extends React.Component {
                                         <option value="exhaustive">Exhaustiva</option>
                                     </select>
                                 </td>
+                                <td></td>
+                            </tr>
+                            {/* PNG Compression Options - Show only when PNG is selected */}
+                            <tr ref="pngCompressConfig" style={{ display: this.packOptions.textureFormat === 'png' ? '' : 'none' }}>
+                                <td>Comprimir PNG:</td>
+                                <td><input ref="compressPng" className="border-color-gray" type="checkbox" defaultChecked={this.packOptions.compressPng ? "checked" : ""} onChange={this.onExporterPropChanged} /></td>
+                                <td></td>
+                            </tr>
+                            <tr ref="pngCompressQualityRow" style={{ display: (this.packOptions.textureFormat === 'png' && this.packOptions.compressPng) ? '' : 'none' }}>
+                                <td>  Calidad:</td>
+                                <td>
+                                    <input ref="compressPngQuality" type="number" min="0" max="1" step="0.1" className="border-color-gray" defaultValue={this.packOptions.compressPngQuality} onBlur={this.onExporterPropChanged} />
+                                </td>
+                                <td></td>
+                            </tr>
+                            <tr ref="pngCompressStripMetaRow" style={{ display: (this.packOptions.textureFormat === 'png' && this.packOptions.compressPng) ? '' : 'none' }}>
+                                <td>  Strip meta:</td>
+                                <td><input ref="compressPngStripMeta" className="border-color-gray" type="checkbox" defaultChecked={this.packOptions.compressPngStripMeta ? "checked" : ""} onChange={this.onExporterPropChanged} /></td>
                                 <td></td>
                             </tr>
                             <tr title={I18.f("REMOVE_FILE_EXT_TITLE")}>

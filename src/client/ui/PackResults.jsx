@@ -3,7 +3,6 @@ import {Observer, GLOBAL_EVENT} from '../Observer';
 import TextureView from './TextureView.jsx';
 import SpritesPlayer from './SpritesPlayer.jsx';
 import I18 from '../utils/I18';
-import { compressPngFromCanvas } from '../utils/PngCompressor';
 
 class PackResults extends React.Component {
     constructor(props) {
@@ -30,7 +29,6 @@ class PackResults extends React.Component {
         this.toggleSpritesPlayer = this.toggleSpritesPlayer.bind(this);
         this.clearSelection = this.clearSelection.bind(this);
         this.handleWheel = this.handleWheel.bind(this);
-        this.compressAtlas = this.compressAtlas.bind(this);
 
         Observer.on(GLOBAL_EVENT.PACK_COMPLETE, this.updatePackResult, this);
         Observer.on(GLOBAL_EVENT.IMAGES_LIST_SELECTED_CHANGED, this.onImagesSelected, this);
@@ -103,48 +101,6 @@ class PackResults extends React.Component {
         this.setState({playerVisible: !this.state.playerVisible});
     }
 
-    /**
-     * Compress the packed atlas PNG and download it
-     */
-    compressAtlas() {
-        if (!this.state.packResult || !this.state.packResult.length) {
-            Observer.emit(GLOBAL_EVENT.SHOW_MESSAGE, 'Primero genera el atlas (Pack)');
-            return;
-        }
-
-        const atlas = this.state.packResult[0];
-        if (!atlas.buffer) {
-            Observer.emit(GLOBAL_EVENT.SHOW_MESSAGE, 'No hay atlas para comprimir');
-            return;
-        }
-
-        Observer.emit(GLOBAL_EVENT.SHOW_SHADER);
-        console.log('[PackResults] Compressing atlas...');
-
-        const atlasName = atlas.data.name || 'atlas';
-
-        compressPngFromCanvas(atlas.buffer, (compressedBlob, originalSize, compressedSize) => {
-            console.log(`[PackResults] Atlas compressed: ${originalSize} -> ${compressedSize} bytes`);
-
-            // Download
-            let url = URL.createObjectURL(compressedBlob);
-            let a = document.createElement('a');
-            a.href = url;
-            a.download = atlasName + '_compressed.png';
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-
-            Observer.emit(GLOBAL_EVENT.HIDE_SHADER);
-            Observer.emit(GLOBAL_EVENT.SHOW_MESSAGE, `Atlas comprimido: ${originalSize} → ${compressedSize} bytes (${Math.round(compressedSize/originalSize*100)}%)`);
-        }, (error) => {
-            console.error('[PackResults] Error compressing atlas:', error);
-            Observer.emit(GLOBAL_EVENT.HIDE_SHADER);
-            Observer.emit(GLOBAL_EVENT.SHOW_MESSAGE, 'Error al comprimir: ' + error);
-        });
-    }
-
     render() {
         let views = [], ix=0;
         if(this.state.packResult) {
@@ -198,9 +154,6 @@ class PackResults extends React.Component {
                                     </td>
                                     <td>
                                         <div className="btn back-800 border-color-gray color-white" onClick={this.toggleSpritesPlayer}>{I18.f("SHOW_SPRITES")}</div>
-                                    </td>
-                                    <td>
-                                        <div className="btn back-accent border-color-gray color-white" onClick={this.compressAtlas}>🗜️ Comprimir Atlas</div>
                                     </td>
                                 </tr>
                                 </tbody>

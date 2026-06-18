@@ -14,7 +14,6 @@ import sparrowStore from '../store/sparrowStore';
 import { getAnimationLinker } from '../utils/AnimationLinker';
 import animationOptionsStore from '../store/animationOptionsStore';
 import AnimationTreeView from './AnimationTreeView.jsx';
-import { compressPngFromCanvas } from '../utils/PngCompressor';
 
 class SheetSplitter extends React.Component {
     constructor(props) {
@@ -58,7 +57,6 @@ class SheetSplitter extends React.Component {
         this.setBack = this.setBack.bind(this);
         this.changeScale = this.changeScale.bind(this);
         this.handleWheel = this.handleWheel.bind(this);
-        this.compressTexture = this.compressTexture.bind(this);
     }
 
     componentDidMount() {
@@ -543,54 +541,6 @@ class SheetSplitter extends React.Component {
         Observer.emit(GLOBAL_EVENT.HIDE_SHEET_SPLITTER);
     }
 
-    /**
-     * Compress the current texture PNG and download it
-     */
-    compressTexture() {
-        if (!this.texture) {
-            Observer.emit(GLOBAL_EVENT.SHOW_MESSAGE, 'Por favor, carga primero una textura PNG');
-            return;
-        }
-
-        Observer.emit(GLOBAL_EVENT.SHOW_SHADER);
-        console.log('[SheetSplitter] Compressing texture:', this.textureName);
-
-        try {
-            // Create a canvas with the texture
-            let canvas = document.createElement('canvas');
-            canvas.width = this.texture.width;
-            canvas.height = this.texture.height;
-            let ctx = canvas.getContext('2d');
-            ctx.drawImage(this.texture, 0, 0);
-
-            // Compress using PngCompressor
-            compressPngFromCanvas(canvas, (compressedBlob, originalSize, compressedSize) => {
-                console.log(`[SheetSplitter] PNG compressed: ${originalSize} -> ${compressedSize} bytes (${Math.round(compressedSize/originalSize*100)}%)`);
-
-                // Download the compressed PNG
-                let url = URL.createObjectURL(compressedBlob);
-                let a = document.createElement('a');
-                    a.href = url;
-                    a.download = this.textureName.replace(/\.[^.]+$/, '') + '_compressed.png';
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                URL.revokeObjectURL(url);
-
-                Observer.emit(GLOBAL_EVENT.HIDE_SHADER);
-                Observer.emit(GLOBAL_EVENT.SHOW_MESSAGE, `PNG comprimido: ${originalSize} → ${compressedSize} bytes (${Math.round(compressedSize/originalSize*100)}%)`);
-            }, (error) => {
-                console.error('[SheetSplitter] Error compressing PNG:', error);
-                Observer.emit(GLOBAL_EVENT.HIDE_SHADER);
-                Observer.emit(GLOBAL_EVENT.SHOW_MESSAGE, 'Error al comprimir PNG: ' + error);
-            });
-        } catch (err) {
-            console.error('[SheetSplitter] Exception compressing texture:', err);
-            Observer.emit(GLOBAL_EVENT.HIDE_SHADER);
-            Observer.emit(GLOBAL_EVENT.SHOW_MESSAGE, 'Error: ' + err.message);
-        }
-    }
-
     render() {
         let displayType = this.state.splitter.type;
 
@@ -769,7 +719,6 @@ class SheetSplitter extends React.Component {
                         <div>
                             <div className="btn back-800 border-color-gray color-white" onClick={this.doRepack}>{I18.f("REPACK")}</div>
                             <div className="btn back-800 border-color-gray color-white" onClick={this.doExport}>{I18.f("EXPORT")}</div>
-                            <div className="btn back-accent border-color-gray color-white" onClick={this.compressTexture}>🗜️ Comprimir PNG</div>
                             <div className="btn back-800 border-color-gray color-white" onClick={this.close}>{I18.f("CLOSE")}</div>
                         </div>
                     </div>

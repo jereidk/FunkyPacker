@@ -13,6 +13,8 @@ import basisEncoder from './utils/astc/BasisEncoder';
 import astcEncoderFallback from './utils/astc/ASTCEncoder';
 //import Tinifyer from 'platform/Tinifyer';
 import Downloader from 'platform/Downloader';
+// PNG compression
+import { compressPngFromCanvas } from './utils/PngCompressor';
 
 // Idempotent polyfill at module scope - HMR-safe with configurable: true
 if (!HTMLImageElement.prototype.hasOwnProperty('__fpToDataURL')) {
@@ -184,6 +186,26 @@ class APP {
                     width: canvas.width,
                     height: canvas.height
                 };
+            } else if (this.packOptions.textureFormat === "png" && this.packOptions.compressPng) {
+                // Use PNG compression if enabled
+                const pngCanvas = filter.apply(buffer);
+                const compressOptions = {
+                    quality: this.packOptions.compressPngQuality || 0.8,
+                    stripMetadata: this.packOptions.compressPngStripMeta || false
+                };
+                
+                // Compress PNG and get base64 result
+                console.log('[APP] Compressing PNG with options:', compressOptions);
+                const compressedData = await compressPngFromCanvas(pngCanvas, 'texture.png', compressOptions);
+                
+                // Convert Uint8Array to base64
+                let binary = '';
+                const len = compressedData.byteLength;
+                for (let i = 0; i < len; i++) {
+                    binary += String.fromCharCode(compressedData[i]);
+                }
+                imageData = btoa(binary);
+                console.log(`[APP] PNG compressed successfully, output size: ${imageData.length} bytes`);
             } else {
                 imageData = filter.apply(buffer).toDataURL(this.packOptions.textureFormat === "png" ? "image/png" : "image/jpeg");
                 let parts = imageData.split(",");
