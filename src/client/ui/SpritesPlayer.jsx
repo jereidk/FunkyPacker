@@ -314,8 +314,10 @@ class SpritesPlayer extends React.Component {
                 nextFrame = (this.state.currentFrame - 1 + this.currentTextures.length) % this.currentTextures.length;
             }
 
-            this.setState({ currentFrame: nextFrame });
-            // Use setState callback instead of setTimeout for proper React lifecycle
+            // Use setState callback to ensure render happens after state update
+            this.setState({ currentFrame: nextFrame }, () => {
+                this.renderCurrentFrame();
+            });
         }, 1000 / this.state.fps);
     }
 

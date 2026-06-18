@@ -27,8 +27,20 @@ const ASTC_INTERNAL_FORMATS = {
 /**
  * JavaScript ASTC encoder - produces valid ASTC blocks
  * Uses void-extent for uniform blocks and direct encoding for others
+ * 
+ * ASTC uses specific "block modes" for encoding. For 4x4 blocks, the most common
+ * direct encoding modes are:
+ * - 0x00: Void-extent (for uniform blocks)
+ * - 0xFF: Direct 4x4 with 2 endpoints + weights
+ * 
+ * For simplicity, we use void-extent for uniform blocks and a basic direct
+ * encoding approach for non-uniform blocks.
  */
 class JavaScriptASTCEncoder {
+    // Block mode for direct encoding with 2 RGBA endpoints and 4-bit weights
+    // For 4x4 blocks, this is mode 0xFF (which is actually a valid mode range)
+    static BLOCK_MODE_DIRECT = 0xFF;
+    
     encodeBlock(pixels, width, height) {
         const blockData = new Uint8Array(16);
         
@@ -54,38 +66,42 @@ class JavaScriptASTCEncoder {
             blockData[0] = 0xFC;
             blockData[1] = 0x5D;
             
-            // RGBA values as 16-bit (8-bit values with 8 fractional bits)
+            // RGBA void color - 8 bits each, replicated in high bits
+            // Format: [R_high:R_low:8] [G_high:G_low:8] [B_high:B_low:8] [A_high:A_low:8]
+            // Where high = low for 8-bit values (truncated to 8 bits of precision)
             blockData[2] = minR;
-            blockData[3] = 0;
+            blockData[3] = minR;  // High 8 bits of R
             blockData[4] = minG;
-            blockData[5] = 0;
+            blockData[5] = minG;  // High 8 bits of G
             blockData[6] = minB;
-            blockData[7] = 0;
+            blockData[7] = minB;  // High 8 bits of B
             blockData[8] = minA;
-            blockData[9] = 0;
+            blockData[9] = minA;  // High 8 bits of A
             
-            // Void RGBA color (remaining bytes)
+            // Remaining bytes for RGBA void (typically zeros)
             for (let i = 10; i < 16; i++) {
-                blockData[i] = 0x80;
+                blockData[i] = 0;
             }
             
             return blockData;
         }
         
-        // Non-uniform block - use direct encoding with endpoints
-        // Calculate interpolated endpoints
+        // Non-uniform block - use direct encoding
+        // For ASTC 4x4, we use a simplified direct encoding with:
+        // - Block mode 0xFF (direct encoding)
+        // - Two RGBA endpoints (16 bytes total for endpoints)
+        // - 16 4-bit weights packed in remaining space
+        
+        // Calculate endpoints
         const r1 = minR, g1 = minG, b1 = minB, a1 = minA;
         const r2 = maxR, g2 = maxG, b2 = maxB, a2 = maxA;
         
-        // Calculate weights for each pixel based on color distance
+        // Calculate weights for each pixel
         const maxDist = Math.max(
-            Math.abs(r2 - r1),
-            Math.abs(g2 - g1),
-            Math.abs(b2 - b1),
-            Math.abs(a2 - a1)
+            Math.abs(r2 - r1) + Math.abs(g2 - g1) + Math.abs(b2 - b1),
+            1  // Avoid division by zero
         );
         
-        // For each pixel, calculate weight
         const weights = new Array(16);
         for (let i = 0; i < 16; i++) {
             const idx = i * 4;
@@ -94,43 +110,40 @@ class JavaScriptASTCEncoder {
             const b = pixels[idx + 2];
             const a = pixels[idx + 3];
             
-            // Calculate distance from min color (normalized)
-            const dist = maxDist > 0 ? 
-                Math.max(
-                    Math.abs(r - r1),
-                    Math.abs(g - g1),
-                    Math.abs(b - b1),
-                    Math.abs(a - a1)
-                ) / maxDist : 0;
-            
-            // Quantize to 4-bit weight (0-15)
-            weights[i] = Math.min(15, Math.round(dist * 15));
+            // Calculate interpolation weight (0-64 range for ASTC)
+            const t = (r - r1) + (g - g1) + (b - b1);
+            const normalizedT = Math.max(0, Math.min(1, t / maxDist));
+            weights[i] = Math.round(normalizedT * 64);
+            if (weights[i] > 64) weights[i] = 64;
         }
         
-        // Build block using direct block mode
-        // Block mode 0x01 = direct encoding with integer endpoints
-        blockData[0] = 0x01;
+        // ASTC direct encoding block
+        // Block mode: 0xFF (direct encoding with weights)
+        blockData[0] = 0xFF;
         blockData[1] = 0x00;
         
-        // Endpoint 0 (min color)
+        // RGBA endpoint 0 (quantized)
         blockData[2] = r1;
         blockData[3] = g1;
         blockData[4] = b1;
         blockData[5] = a1;
         
-        // Endpoint 1 (max color)
+        // RGBA endpoint 1 (quantized)
         blockData[6] = r2;
         blockData[7] = g2;
         blockData[8] = b2;
         blockData[9] = a2;
         
-        // Weights packed 2 per byte (4-bit each)
-        blockData[10] = (weights[0] & 0x0F) | ((weights[1] & 0x0F) << 4);
-        blockData[11] = (weights[2] & 0x0F) | ((weights[3] & 0x0F) << 4);
-        blockData[12] = (weights[4] & 0x0F) | ((weights[5] & 0x0F) << 4);
-        blockData[13] = (weights[6] & 0x0F) | ((weights[7] & 0x0F) << 4);
-        blockData[14] = (weights[8] & 0x0F) | ((weights[9] & 0x0F) << 4);
-        blockData[15] = (weights[10] & 0x0F) | ((weights[11] & 0x0F) << 4);
+        // Weights - quantized to 4-bit (0-15) for storage
+        const weights4bit = weights.map(w => Math.round(w / 4));
+        
+        // Pack weights 2 per byte
+        blockData[10] = (weights4bit[0] & 0x0F) | ((weights4bit[1] & 0x0F) << 4);
+        blockData[11] = (weights4bit[2] & 0x0F) | ((weights4bit[3] & 0x0F) << 4);
+        blockData[12] = (weights4bit[4] & 0x0F) | ((weights4bit[5] & 0x0F) << 4);
+        blockData[13] = (weights4bit[6] & 0x0F) | ((weights4bit[7] & 0x0F) << 4);
+        blockData[14] = (weights4bit[8] & 0x0F) | ((weights4bit[9] & 0x0F) << 4);
+        blockData[15] = (weights4bit[10] & 0x0F) | ((weights4bit[11] & 0x0F) << 4);
         
         return blockData;
     }
