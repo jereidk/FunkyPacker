@@ -44,6 +44,8 @@ class SheetSplitter extends React.Component {
         this.zipName = '';
 
         this.buffer = document.createElement('canvas');
+        // Use default alpha:true to preserve transparency in extracted frames
+        this.bufferCtx = this.buffer.getContext('2d');
 
         this.doExport = this.doExport.bind(this);
         this.doRepack = this.doRepack.bind(this);
@@ -100,7 +102,7 @@ class SheetSplitter extends React.Component {
             return;
         }
 
-        let ctx = this.buffer.getContext('2d');
+        let ctx = this.bufferCtx;
         let files = [];
 
         let disableuntrim = ReactDOM.findDOMNode(this.refs.disableuntrim).checked;
@@ -212,7 +214,7 @@ class SheetSplitter extends React.Component {
             return;
         }
 
-        let ctx = this.buffer.getContext('2d');
+        let ctx = this.bufferCtx;
         let files = [];
 
         let disableuntrim = ReactDOM.findDOMNode(this.refs.disableuntrim).checked;
