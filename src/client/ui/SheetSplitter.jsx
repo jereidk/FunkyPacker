@@ -162,12 +162,15 @@ class SheetSplitter extends React.Component {
             }
 
             let ext = item.name.split('.').pop().toLowerCase();
-            if(!ext) {
+            // Force PNG format to preserve transparency in extracted frames
+            // Atlas sprites typically have alpha channel that would be lost with JPEG
+            let forcePng = ['jpg', 'jpeg', 'jpng'].includes(ext);
+            if(forcePng || !ext) {
                 ext = 'png';
                 item.name += '.' + ext;
             }
 
-            let base64 = this.buffer.toDataURL(ext === 'png' ? 'image/png' : 'image/jpeg');
+            let base64 = this.buffer.toDataURL('image/png');
             //base64 = base64.split(',').pop();
 
             files.push({
@@ -263,12 +266,15 @@ class SheetSplitter extends React.Component {
             }
 
             let ext = item.name.split('.').pop().toLowerCase();
-            if(!ext) {
+            // Force PNG format to preserve transparency in extracted frames
+            // Atlas sprites typically have alpha channel that would be lost with JPEG
+            let forcePng = ['jpg', 'jpeg', 'jpng'].includes(ext);
+            if(forcePng || !ext) {
                 ext = 'png';
                 item.name += '.' + ext;
             }
 
-            let base64 = this.buffer.toDataURL(ext === 'png' ? 'image/png' : 'image/jpeg');
+            let base64 = this.buffer.toDataURL('image/png');
             base64 = base64.split(',').pop();
 
             files.push({
