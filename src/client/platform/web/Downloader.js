@@ -14,7 +14,7 @@ class Downloader {
         JSZip.defaults.date = dateWithOffset;
 
         for(let file of files) {
-            zip.file(file.name, file.content, {base64: !!file.base64});
+            zip.file(file.name, file.content, {base64: !!file.base64, binary: !!file.binary});
         }
 
         let ext = fileName.split(".").pop();
