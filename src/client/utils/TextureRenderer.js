@@ -2,6 +2,8 @@ class TextureRenderer {
 
     constructor(data, options={}) {
         this.buffer = document.createElement("canvas");
+        // Create context with alpha to preserve transparency
+        this.bufferCtx = this.buffer.getContext("2d");
 
         this.width = 0;
         this.height = 0;
@@ -61,7 +63,7 @@ class TextureRenderer {
     }
 
     render(data, options={}) {
-        let ctx = this.buffer.getContext("2d");
+        let ctx = this.bufferCtx;
 
         let { width, height } = TextureRenderer.getSize(data, options);
 
@@ -85,6 +87,7 @@ class TextureRenderer {
         tempBuffer.width = Math.round(this.buffer.width * val) || 1;
         tempBuffer.height = Math.round(this.buffer.height * val) || 1;
 
+        // Create context with alpha to preserve transparency
         let tempCtx = tempBuffer.getContext("2d");
         tempCtx.drawImage(this.buffer, 0, 0, this.buffer.width, this.buffer.height, 0, 0, tempBuffer.width, tempBuffer.height);
 
