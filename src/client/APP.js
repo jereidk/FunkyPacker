@@ -199,12 +199,7 @@ class APP {
                 const compressedData = await compressPngFromCanvas(pngCanvas, 'texture.png', compressOptions);
                 
                 // Convert Uint8Array to base64
-                let binary = '';
-                const len = compressedData.byteLength;
-                for (let i = 0; i < len; i++) {
-                    binary += String.fromCharCode(compressedData[i]);
-                }
-                imageData = btoa(binary);
+                imageData = btoa(String.fromCharCode(...compressedData));
                 console.log(`[APP] PNG compressed successfully, output size: ${imageData.length} bytes`);
             } else {
                 imageData = filter.apply(buffer).toDataURL(this.packOptions.textureFormat === "png" ? "image/png" : "image/jpeg");
@@ -223,11 +218,13 @@ class APP {
             }*/
 
             if (this.packOptions.textureFormat === 'astc') {
-                // For ASTC, we need to store as binary array
+                // Convert ASTC binary to base64 for correct ZIP storage
+                const astcBytes = imageData instanceof Uint8Array ? imageData : new Uint8Array(imageData);
+                const astcBinary = String.fromCharCode(...astcBytes);
                 files.push({
                     name: `${fName}.astc`,
-                    content: Array.from(new Uint8Array(imageData)),
-                    binary: true,
+                    content: btoa(astcBinary),
+                    base64: true,
                     astcMeta: astcMeta
                 });
             } else {
